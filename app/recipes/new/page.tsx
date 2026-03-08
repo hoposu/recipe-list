@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import RecipeInput from '@/components/RecipeInput'
 import IngredientList from '@/components/IngredientList'
+import Logo from '@/components/Logo'
 import { createClient } from '@/lib/supabase'
 
 interface Ingredient {
@@ -16,6 +17,11 @@ interface Ingredient {
 
 interface ParsedRecipe {
   title: string
+  image_url: string | null
+  instructions: string[]
+  total_time_minutes: number | null
+  servings: number | null
+  tags: string[]
   ingredients: Ingredient[]
 }
 
@@ -48,8 +54,13 @@ export default function NewRecipePage() {
         .insert({
           user_id: user.id,
           title: parsedRecipe.title,
+          image_url: parsedRecipe.image_url,
           source_url: sourceUrl,
           source_type: sourceType,
+          instructions: parsedRecipe.instructions || [],
+          total_time_minutes: parsedRecipe.total_time_minutes,
+          servings: parsedRecipe.servings,
+          tags: parsedRecipe.tags || [],
         })
         .select()
         .single()
@@ -101,15 +112,15 @@ export default function NewRecipePage() {
     <div className="min-h-screen bg-zinc-900">
       <header className="bg-zinc-800 border-b border-zinc-700">
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-xl font-bold text-white">
-            Recipe List
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-sm text-violet-400 hover:text-violet-300"
-          >
-            &larr; Back to Dashboard
-          </Link>
+          <Logo />
+          <div className="flex items-center gap-4">
+            <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
+              Explore
+            </Link>
+            <Link href="/dashboard" className="text-sm text-violet-400 hover:text-violet-300">
+              Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -125,7 +136,12 @@ export default function NewRecipePage() {
         ) : (
           <IngredientList
             title={parsedRecipe.title}
+            imageUrl={parsedRecipe.image_url}
             ingredients={parsedRecipe.ingredients}
+            instructions={parsedRecipe.instructions}
+            totalTimeMinutes={parsedRecipe.total_time_minutes}
+            servings={parsedRecipe.servings}
+            tags={parsedRecipe.tags}
             onSave={handleSave}
             onCancel={handleCancel}
             saving={saving}

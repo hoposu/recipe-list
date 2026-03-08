@@ -1,14 +1,58 @@
 import Link from 'next/link'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { redirect } from 'next/navigation'
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Redirect logged-in users to Activity feed
+  if (user) {
+    redirect('/feed')
+  }
+
   return (
     <div className="min-h-screen bg-zinc-900">
       <main className="mx-auto max-w-4xl px-6 py-16">
         {/* Header */}
         <header className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            Recipe List
-          </h1>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            {/* Cute Hippo SVG */}
+            <svg
+              width="56"
+              height="56"
+              viewBox="0 0 100 100"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Head */}
+              <ellipse cx="50" cy="55" rx="35" ry="30" fill="#8B5CF6" />
+              {/* Snout */}
+              <ellipse cx="50" cy="70" rx="22" ry="16" fill="#A78BFA" />
+              {/* Left nostril */}
+              <ellipse cx="42" cy="70" rx="4" ry="3" fill="#6D28D9" />
+              {/* Right nostril */}
+              <ellipse cx="58" cy="70" rx="4" ry="3" fill="#6D28D9" />
+              {/* Left eye */}
+              <circle cx="35" cy="45" r="6" fill="white" />
+              <circle cx="36" cy="45" r="3" fill="#1F2937" />
+              {/* Right eye */}
+              <circle cx="65" cy="45" r="6" fill="white" />
+              <circle cx="66" cy="45" r="3" fill="#1F2937" />
+              {/* Left ear */}
+              <ellipse cx="22" cy="32" rx="8" ry="10" fill="#8B5CF6" />
+              <ellipse cx="22" cy="32" rx="4" ry="6" fill="#DDD6FE" />
+              {/* Right ear */}
+              <ellipse cx="78" cy="32" rx="8" ry="10" fill="#8B5CF6" />
+              <ellipse cx="78" cy="32" rx="4" ry="6" fill="#DDD6FE" />
+              {/* Cute blush marks */}
+              <ellipse cx="25" cy="58" rx="6" ry="3" fill="#F9A8D4" opacity="0.6" />
+              <ellipse cx="75" cy="58" rx="6" ry="3" fill="#F9A8D4" opacity="0.6" />
+            </svg>
+            <h1 className="text-5xl font-bold text-white">
+              Recipe Pals
+            </h1>
+          </div>
           <p className="text-xl text-violet-300">
             Turn any recipe into a shopping list. Share with family.
           </p>

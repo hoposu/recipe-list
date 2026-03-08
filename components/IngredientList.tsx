@@ -9,10 +9,28 @@ interface Ingredient {
 
 interface IngredientListProps {
   title: string
+  imageUrl?: string | null
   ingredients: Ingredient[]
+  instructions?: string[]
+  totalTimeMinutes?: number | null
+  servings?: number | null
+  tags?: string[]
   onSave: () => void
   onCancel: () => void
   saving?: boolean
+}
+
+const tagColors: Record<string, string> = {
+  Vegetarian: 'bg-green-600/30 text-green-400',
+  Soup: 'bg-amber-600/30 text-amber-400',
+  Chicken: 'bg-yellow-600/30 text-yellow-400',
+  Seafood: 'bg-cyan-600/30 text-cyan-400',
+  Beef: 'bg-red-600/30 text-red-400',
+  Pork: 'bg-pink-600/30 text-pink-400',
+  Breakfast: 'bg-orange-600/30 text-orange-400',
+  Sweet: 'bg-fuchsia-600/30 text-fuchsia-400',
+  Savory: 'bg-indigo-600/30 text-indigo-400',
+  Holiday: 'bg-rose-600/30 text-rose-400',
 }
 
 const categoryColors: Record<string, string> = {
@@ -29,7 +47,12 @@ const categoryColors: Record<string, string> = {
 
 export default function IngredientList({
   title,
+  imageUrl,
   ingredients,
+  instructions,
+  totalTimeMinutes,
+  servings,
+  tags,
   onSave,
   onCancel,
   saving = false
@@ -46,11 +69,85 @@ export default function IngredientList({
 
   return (
     <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
-      <h3 className="text-xl font-bold text-white mb-4">
+      {/* Recipe Image */}
+      {imageUrl && (
+        <div className="mb-4 -mx-6 -mt-6">
+          <img
+            src={imageUrl}
+            alt={title}
+            className="w-full h-48 object-cover rounded-t-2xl"
+          />
+        </div>
+      )}
+
+      <h3 className="text-xl font-bold text-white mb-2">
         {title}
       </h3>
 
-      <div className="space-y-4 mb-6">
+      {/* Tags */}
+      {tags && tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className={`text-xs px-2 py-1 rounded-full ${tagColors[tag] || 'bg-zinc-600/30 text-zinc-400'}`}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Recipe Info Cards */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="bg-zinc-700/50 rounded-xl p-3 text-center">
+          <div className="text-2xl mb-1">⏱</div>
+          <div className="text-lg font-semibold text-white">
+            {totalTimeMinutes ? `${totalTimeMinutes} min` : '—'}
+          </div>
+          <div className="text-xs text-zinc-400">Cook Time</div>
+        </div>
+        <div className="bg-zinc-700/50 rounded-xl p-3 text-center">
+          <div className="text-2xl mb-1">🍽</div>
+          <div className="text-lg font-semibold text-white">
+            {servings || '—'}
+          </div>
+          <div className="text-xs text-zinc-400">Servings</div>
+        </div>
+        <div className="bg-zinc-700/50 rounded-xl p-3 text-center">
+          <div className="text-2xl mb-1">🥗</div>
+          <div className="text-lg font-semibold text-white">
+            {ingredients.length}
+          </div>
+          <div className="text-xs text-zinc-400">Ingredients</div>
+        </div>
+      </div>
+
+      {/* Instructions */}
+      {instructions && instructions.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-2">
+            Instructions
+          </h4>
+          <ol className="space-y-2">
+            {instructions.map((step, idx) => (
+              <li key={idx} className="flex gap-3 text-sm text-zinc-300">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600/30 text-violet-400 flex items-center justify-center text-xs font-medium">
+                  {idx + 1}
+                </span>
+                <span>{step.replace(/^Step \d+[:.]\s*/i, '')}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* Ingredients */}
+      <div className="mb-6">
+        <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-3">
+          Ingredients
+        </h4>
+        <div className="space-y-4">
         {categoryOrder.map((category) => {
           const items = grouped[category]
           if (!items || items.length === 0) return null
@@ -61,27 +158,32 @@ export default function IngredientList({
                 {category}
               </h4>
               <ul className="space-y-1">
-                {items.map((ing, idx) => (
-                  <li
-                    key={idx}
-                    className="flex items-center justify-between py-2 px-3 bg-zinc-700/50 rounded-lg"
-                  >
-                    <span className="text-zinc-200">
-                      {ing.name}
-                    </span>
-                    <span className="text-sm text-zinc-400">
-                      {ing.quantity && ing.unit
-                        ? `${ing.quantity} ${ing.unit}`
-                        : ing.quantity
-                        ? ing.quantity
-                        : ''}
-                    </span>
-                  </li>
-                ))}
+                {items.map((ing, idx) => {
+                  const amount = ing.quantity && ing.unit
+                    ? `${ing.quantity} ${ing.unit}`
+                    : ing.quantity
+                    ? `${ing.quantity}`
+                    : null
+
+                  return (
+                    <li
+                      key={idx}
+                      className="flex items-center gap-3 py-2 px-3 bg-zinc-700/50 rounded-lg"
+                    >
+                      <span className={`text-sm font-medium min-w-20 ${amount ? 'text-violet-400' : 'text-zinc-500 italic'}`}>
+                        {amount || 'to taste'}
+                      </span>
+                      <span className="text-zinc-200">
+                        {ing.name}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )
         })}
+        </div>
       </div>
 
       <div className="flex gap-3">

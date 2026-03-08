@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import ShareModal from '@/components/ShareModal'
+import Logo from '@/components/Logo'
 import { ShoppingListSkeleton } from '@/components/Skeleton'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
@@ -33,6 +34,11 @@ interface Member {
   }
 }
 
+interface LinkedRecipe {
+  id: string
+  title: string
+}
+
 const categoryOrder = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'frozen', 'pantry', 'beverages', 'other']
 
 export default function ShoppingListPage() {
@@ -42,6 +48,7 @@ export default function ShoppingListPage() {
   const [list, setList] = useState<ShoppingList | null>(null)
   const [items, setItems] = useState<ShoppingListItem[]>([])
   const [members, setMembers] = useState<Member[]>([])
+  const [linkedRecipes, setLinkedRecipes] = useState<LinkedRecipe[]>([])
   const [loading, setLoading] = useState(true)
   const [showShareModal, setShowShareModal] = useState(false)
   const [isOwner, setIsOwner] = useState(false)
@@ -87,6 +94,21 @@ export default function ShoppingListPage() {
       .eq('list_id', listId)
 
     setMembers(membersData as unknown as Member[] || [])
+
+    // Fetch linked recipes
+    const { data: recipesData } = await supabase
+      .from('shopping_list_recipes')
+      .select(`
+        recipes (
+          id,
+          title
+        )
+      `)
+      .eq('list_id', listId)
+
+    const recipes = recipesData?.map(r => (r.recipes as unknown as LinkedRecipe)).filter(Boolean) || []
+    setLinkedRecipes(recipes)
+
     setLoading(false)
   }, [listId, supabase])
 
@@ -261,15 +283,15 @@ export default function ShoppingListPage() {
     <div className="min-h-screen bg-zinc-900">
       <header className="bg-zinc-800 border-b border-zinc-700">
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-xl font-bold text-white">
-            Recipe List
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-sm text-violet-400 hover:text-violet-300"
-          >
-            ← Back to Dashboard
-          </Link>
+          <Logo />
+          <div className="flex items-center gap-4">
+            <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
+              Explore
+            </Link>
+            <Link href="/dashboard" className="text-sm text-violet-400 hover:text-violet-300">
+              Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -332,6 +354,24 @@ export default function ShoppingListPage() {
                 .map(m => m.profiles?.email || 'Unknown')
                 .join(', ')}
             </p>
+          </div>
+        )}
+
+        {/* Linked Recipes */}
+        {linkedRecipes.length > 0 && (
+          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-6">
+            <p className="text-sm text-zinc-400 mb-2">Recipes in this list:</p>
+            <div className="flex flex-wrap gap-2">
+              {linkedRecipes.map(recipe => (
+                <Link
+                  key={recipe.id}
+                  href={`/recipes/${recipe.id}`}
+                  className="px-3 py-1 bg-violet-600/20 text-violet-400 text-sm rounded-lg hover:bg-violet-600/30 transition-colors"
+                >
+                  {recipe.title}
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 

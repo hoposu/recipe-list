@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import Logo from '@/components/Logo'
 
 interface Recipe {
   id: string
@@ -77,9 +78,11 @@ export default function NewShoppingListPage() {
       if (listError) throw listError
 
       // Add owner as a member
-      await supabase
+      const { error: memberError } = await supabase
         .from('shopping_list_members')
         .insert({ list_id: list.id, user_id: user.id, role: 'owner' })
+
+      if (memberError) throw memberError
 
       // Consolidate ingredients from selected recipes
       const selectedRecipeData = recipes.filter(r => selectedRecipes.includes(r.id))
@@ -104,10 +107,23 @@ export default function NewShoppingListPage() {
         if (itemsError) throw itemsError
       }
 
+      // Link recipes to shopping list
+      const recipeLinks = selectedRecipes.map(recipeId => ({
+        list_id: list.id,
+        recipe_id: recipeId,
+      }))
+
+      const { error: linkError } = await supabase
+        .from('shopping_list_recipes')
+        .insert(recipeLinks)
+
+      if (linkError) throw linkError
+
       router.push(`/shopping-lists/${list.id}`)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating list:', error)
-      alert('Failed to create shopping list')
+      const message = error?.message || error?.toString() || 'Unknown error'
+      alert(`Failed to create shopping list: ${message}`)
     } finally {
       setSaving(false)
     }
@@ -117,15 +133,15 @@ export default function NewShoppingListPage() {
     <div className="min-h-screen bg-zinc-900">
       <header className="bg-zinc-800 border-b border-zinc-700">
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-xl font-bold text-white">
-            Recipe List
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-sm text-violet-400 hover:text-violet-300"
-          >
-            ← Back to Dashboard
-          </Link>
+          <Logo />
+          <div className="flex items-center gap-4">
+            <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
+              Explore
+            </Link>
+            <Link href="/dashboard" className="text-sm text-violet-400 hover:text-violet-300">
+              Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -56,7 +56,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
           }
         }
 
-        router.push('/dashboard')
+        router.push('/feed')
         router.refresh()
       }
     } catch (err) {

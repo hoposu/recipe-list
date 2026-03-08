@@ -2,6 +2,21 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import LogoutButton from '@/components/LogoutButton'
+import Logo from '@/components/Logo'
+import DraftListSection from '@/components/DraftListSection'
+
+const tagColors: Record<string, string> = {
+  Vegetarian: 'bg-green-600/30 text-green-400',
+  Soup: 'bg-amber-600/30 text-amber-400',
+  Chicken: 'bg-yellow-600/30 text-yellow-400',
+  Seafood: 'bg-cyan-600/30 text-cyan-400',
+  Beef: 'bg-red-600/30 text-red-400',
+  Pork: 'bg-pink-600/30 text-pink-400',
+  Breakfast: 'bg-orange-600/30 text-orange-400',
+  Sweet: 'bg-fuchsia-600/30 text-fuchsia-400',
+  Savory: 'bg-indigo-600/30 text-indigo-400',
+  Holiday: 'bg-rose-600/30 text-rose-400',
+}
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -18,6 +33,8 @@ export default async function DashboardPage() {
     .select(`
       id,
       title,
+      image_url,
+      tags,
       source_type,
       created_at,
       visibility,
@@ -84,6 +101,8 @@ export default async function DashboardPage() {
       recipes (
         id,
         title,
+        image_url,
+        tags,
         visibility,
         profiles:user_id (
           email,
@@ -102,6 +121,8 @@ export default async function DashboardPage() {
     .select(`
       id,
       title,
+      image_url,
+      tags,
       created_at,
       visibility,
       profiles:user_id (
@@ -120,29 +141,24 @@ export default async function DashboardPage() {
       <header className="bg-zinc-800 border-b border-zinc-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold text-white">
-              Recipe List
-            </h1>
-            <div className="flex items-center gap-2 sm:gap-4">
+            <Logo />
+            <div className="flex items-center gap-4">
               <Link
-                href="/feed"
-                className="text-sm text-violet-400 hover:text-violet-300 font-medium hidden sm:inline"
+                href="/explore"
+                className="text-sm text-violet-400 hover:text-violet-300 font-medium"
               >
-                Activity Feed
+                Explore
               </Link>
-              <span className="text-sm text-zinc-400 hidden md:inline truncate max-w-[150px]">
-                {user.email}
-              </span>
+              <span className="text-sm text-white font-medium">Dashboard</span>
+              <Link
+                href="/settings"
+                className="text-sm text-violet-400 hover:text-violet-300 font-medium"
+              >
+                Settings
+              </Link>
               <LogoutButton />
             </div>
           </div>
-          {/* Mobile-only browse link */}
-          <Link
-            href="/feed"
-            className="text-sm text-violet-400 hover:text-violet-300 font-medium sm:hidden mt-2 block"
-          >
-            Activity Feed →
-          </Link>
         </div>
       </header>
 
@@ -188,6 +204,9 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {/* Draft Recipe List */}
+        <DraftListSection />
+
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {/* My Recipes */}
           <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
@@ -201,21 +220,50 @@ export default async function DashboardPage() {
                   <Link
                     key={recipe.id}
                     href={`/recipes/${recipe.id}`}
-                    className="block p-4 bg-zinc-700/50 rounded-xl hover:bg-zinc-700 transition-colors"
+                    className="flex gap-3 p-3 bg-zinc-700/50 rounded-xl hover:bg-zinc-700 transition-colors"
                   >
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-medium text-white">
-                        {recipe.title}
-                      </h3>
-                      {recipe.visibility !== 'private' && (
-                        <span className="text-xs px-2 py-1 bg-violet-600/30 text-violet-300 rounded">
-                          {recipe.visibility}
-                        </span>
+                    {/* Recipe thumbnail */}
+                    {recipe.image_url ? (
+                      <img
+                        src={recipe.image_url}
+                        alt={recipe.title}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-zinc-600 rounded-lg flex-shrink-0 flex items-center justify-center">
+                        <span className="text-2xl">🍽</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-medium text-white truncate">
+                          {recipe.title}
+                        </h3>
+                        {recipe.visibility !== 'private' && (
+                          <span className="text-xs px-2 py-1 bg-violet-600/30 text-violet-300 rounded flex-shrink-0">
+                            {recipe.visibility}
+                          </span>
+                        )}
+                      </div>
+                      {(recipe as any).tags && (recipe as any).tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {((recipe as any).tags as string[]).slice(0, 2).map(tag => (
+                            <span
+                              key={tag}
+                              className={`text-xs px-1.5 py-0.5 rounded ${tagColors[tag] || 'bg-zinc-600/30 text-zinc-400'}`}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          {(recipe as any).tags.length > 2 && (
+                            <span className="text-xs text-zinc-500">+{(recipe as any).tags.length - 2}</span>
+                          )}
+                        </div>
                       )}
+                      <p className="text-sm text-zinc-400">
+                        {(recipe.ingredients as { count: number }[])[0]?.count || 0} ingredients
+                      </p>
                     </div>
-                    <p className="text-sm text-zinc-400">
-                      {(recipe.ingredients as { count: number }[])[0]?.count || 0} ingredients
-                    </p>
                   </Link>
                 ))}
               </div>
@@ -309,14 +357,39 @@ export default async function DashboardPage() {
                   <Link
                     key={saved.id}
                     href={`/recipes/${recipe.id}`}
-                    className="p-4 bg-zinc-700/50 rounded-xl hover:bg-zinc-700 transition-colors"
+                    className="flex gap-3 p-3 bg-zinc-700/50 rounded-xl hover:bg-zinc-700 transition-colors"
                   >
-                    <h3 className="font-medium text-white">
-                      {recipe.title}
-                    </h3>
-                    <p className="text-sm text-zinc-400">
-                      by {recipe.profiles?.display_name || recipe.profiles?.email || 'Unknown'}
-                    </p>
+                    {recipe.image_url ? (
+                      <img
+                        src={recipe.image_url}
+                        alt={recipe.title}
+                        className="w-14 h-14 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 bg-zinc-600 rounded-lg flex-shrink-0 flex items-center justify-center">
+                        <span className="text-xl">🍽</span>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-white truncate">
+                        {recipe.title}
+                      </h3>
+                      {recipe.tags && recipe.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {(recipe.tags as string[]).slice(0, 2).map((tag: string) => (
+                            <span
+                              key={tag}
+                              className={`text-xs px-1.5 py-0.5 rounded ${tagColors[tag] || 'bg-zinc-600/30 text-zinc-400'}`}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-sm text-zinc-400 truncate">
+                        by {recipe.profiles?.display_name || recipe.profiles?.email || 'Unknown'}
+                      </p>
+                    </div>
                   </Link>
                 )
               })}
@@ -343,14 +416,39 @@ export default async function DashboardPage() {
                 <Link
                   key={recipe.id}
                   href={`/recipes/${recipe.id}`}
-                  className="p-4 bg-zinc-700/50 rounded-xl hover:bg-zinc-700 transition-colors"
+                  className="flex gap-3 p-3 bg-zinc-700/50 rounded-xl hover:bg-zinc-700 transition-colors"
                 >
-                  <h3 className="font-medium text-white">
-                    {recipe.title}
-                  </h3>
-                  <p className="text-sm text-zinc-400">
-                    by {(recipe.profiles as any)?.display_name || (recipe.profiles as any)?.email || 'Unknown'}
-                  </p>
+                  {recipe.image_url ? (
+                    <img
+                      src={recipe.image_url}
+                      alt={recipe.title}
+                      className="w-14 h-14 object-cover rounded-lg flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 bg-zinc-600 rounded-lg flex-shrink-0 flex items-center justify-center">
+                      <span className="text-xl">🍽</span>
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-white truncate">
+                      {recipe.title}
+                    </h3>
+                    {(recipe as any).tags && (recipe as any).tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {((recipe as any).tags as string[]).slice(0, 2).map((tag: string) => (
+                          <span
+                            key={tag}
+                            className={`text-xs px-1.5 py-0.5 rounded ${tagColors[tag] || 'bg-zinc-600/30 text-zinc-400'}`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-sm text-zinc-400 truncate">
+                      by {(recipe.profiles as any)?.display_name || (recipe.profiles as any)?.email || 'Unknown'}
+                    </p>
+                  </div>
                 </Link>
               ))}
             </div>

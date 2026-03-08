@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import Logo from '@/components/Logo'
 
 export default async function BrowsePage() {
   const supabase = await createServerSupabaseClient()
@@ -33,9 +34,7 @@ export default async function BrowsePage() {
     <div className="min-h-screen bg-zinc-900">
       <header className="bg-zinc-800 border-b border-zinc-700">
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-xl font-bold text-white">
-            Recipe List
-          </Link>
+          <Logo />
           <Link
             href="/dashboard"
             className="text-sm text-violet-400 hover:text-violet-300"

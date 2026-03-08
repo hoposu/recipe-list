@@ -11,6 +11,11 @@ interface Ingredient {
 
 interface ParsedRecipe {
   title: string
+  image_url: string | null
+  instructions: string[]
+  total_time_minutes: number | null
+  servings: number | null
+  tags: string[]
   ingredients: Ingredient[]
 }
 
