@@ -86,7 +86,7 @@ export default function ShoppingListPage() {
       `)
       .eq('list_id', listId)
 
-    setMembers(membersData as Member[] || [])
+    setMembers(membersData as unknown as Member[] || [])
     setLoading(false)
   }, [listId, supabase])
 

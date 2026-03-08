@@ -71,6 +71,15 @@ export default function NewRecipePage() {
 
       if (ingredientsError) throw ingredientsError
 
+      // Log activity for new recipe
+      await supabase
+        .from('activities')
+        .insert({
+          user_id: user.id,
+          type: 'new_recipe',
+          recipe_id: recipe.id,
+        })
+
       // Success! Go back to dashboard
       router.push('/dashboard')
       router.refresh()

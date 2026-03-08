@@ -75,6 +75,27 @@ export default async function DashboardPage() {
     }))
   ]
 
+  // Fetch saved recipes
+  const { data: savedRecipes } = await supabase
+    .from('saved_recipes')
+    .select(`
+      id,
+      saved_at,
+      recipes (
+        id,
+        title,
+        visibility,
+        profiles:user_id (
+          email,
+          display_name
+        ),
+        ingredients (count)
+      )
+    `)
+    .eq('user_id', user.id)
+    .order('saved_at', { ascending: false })
+    .limit(5)
+
   // Fetch shared recipes from others (visibility = 'friends' or 'public')
   const { data: sharedRecipes } = await supabase
     .from('recipes')
@@ -104,10 +125,10 @@ export default async function DashboardPage() {
             </h1>
             <div className="flex items-center gap-2 sm:gap-4">
               <Link
-                href="/browse"
+                href="/feed"
                 className="text-sm text-violet-400 hover:text-violet-300 font-medium hidden sm:inline"
               >
-                Browse Recipes
+                Activity Feed
               </Link>
               <span className="text-sm text-zinc-400 hidden md:inline truncate max-w-[150px]">
                 {user.email}
@@ -117,10 +138,10 @@ export default async function DashboardPage() {
           </div>
           {/* Mobile-only browse link */}
           <Link
-            href="/browse"
+            href="/feed"
             className="text-sm text-violet-400 hover:text-violet-300 font-medium sm:hidden mt-2 block"
           >
-            Browse Recipes →
+            Activity Feed →
           </Link>
         </div>
       </header>
@@ -274,6 +295,35 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {/* Saved Recipes */}
+        {savedRecipes && savedRecipes.length > 0 && (
+          <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 mb-8">
+            <h2 className="text-xl font-semibold text-white mb-4">
+              Saved Recipes
+            </h2>
+            <div className="grid md:grid-cols-2 gap-3">
+              {savedRecipes.map((saved) => {
+                const recipe = saved.recipes as any
+                if (!recipe) return null
+                return (
+                  <Link
+                    key={saved.id}
+                    href={`/recipes/${recipe.id}`}
+                    className="p-4 bg-zinc-700/50 rounded-xl hover:bg-zinc-700 transition-colors"
+                  >
+                    <h3 className="font-medium text-white">
+                      {recipe.title}
+                    </h3>
+                    <p className="text-sm text-zinc-400">
+                      by {recipe.profiles?.display_name || recipe.profiles?.email || 'Unknown'}
+                    </p>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Shared Recipes from Others */}
         {sharedRecipes && sharedRecipes.length > 0 && (
           <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
@@ -282,7 +332,7 @@ export default async function DashboardPage() {
                 Shared by Others
               </h2>
               <Link
-                href="/browse"
+                href="/feed"
                 className="text-sm text-violet-400 hover:text-violet-300 font-medium"
               >
                 See all →

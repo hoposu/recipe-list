@@ -30,11 +30,32 @@ export default function AuthForm({ mode }: AuthFormProps) {
         if (error) throw error
         setError('Check your email for a confirmation link!')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
         if (error) throw error
+
+        // Check if this is user's first login (no activities yet)
+        if (data.user) {
+          const { data: existingActivity } = await supabase
+            .from('activities')
+            .select('id')
+            .eq('user_id', data.user.id)
+            .eq('type', 'signup')
+            .single()
+
+          // If no signup activity exists, create one
+          if (!existingActivity) {
+            await supabase
+              .from('activities')
+              .insert({
+                user_id: data.user.id,
+                type: 'signup',
+              })
+          }
+        }
+
         router.push('/dashboard')
         router.refresh()
       }
