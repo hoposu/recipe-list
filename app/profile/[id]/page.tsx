@@ -68,9 +68,6 @@ export default async function UserProfilePage({ params }: Props) {
               <span className="text-xl font-semibold text-white">Recipe Pals</span>
             </Link>
             <nav className="flex items-center gap-2">
-              <Link href="/feed" className="glass-button text-sm text-white/90 hover:text-white">
-                Feed
-              </Link>
               <Link href="/explore" className="glass-button text-sm text-white/90 hover:text-white">
                 Explore
               </Link>

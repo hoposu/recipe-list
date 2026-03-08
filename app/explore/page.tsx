@@ -370,9 +370,6 @@ export default function ExplorePage() {
               <span className="text-xl font-semibold text-white">Recipe Pals</span>
             </Link>
             <nav className="flex items-center gap-2">
-              <Link href="/feed" className="glass-button text-sm text-white/90 hover:text-white">
-                Feed
-              </Link>
               <Link href="/profile" className="glass-button text-sm text-white/90 hover:text-white">
                 Profile
               </Link>
