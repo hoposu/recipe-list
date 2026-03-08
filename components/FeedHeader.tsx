@@ -10,15 +10,16 @@ export default function FeedHeader() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-white">
-          Activity
-        </h1>
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-medium text-white/60">
+          Recent Activity
+        </h2>
         <button
           onClick={() => setShowPostModal(true)}
-          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
+          className="glass-button glass-button-active text-sm flex items-center gap-2"
         >
-          + Post
+          <span>+</span>
+          <span>Share what you cooked</span>
         </button>
       </div>
 

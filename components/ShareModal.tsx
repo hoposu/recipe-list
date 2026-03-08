@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
 interface ShareModalProps {
@@ -9,12 +9,101 @@ interface ShareModalProps {
   onClose: () => void
 }
 
+interface SuggestedUser {
+  id: string
+  email: string
+  display_name: string | null
+  sharedCount: number
+}
+
 export default function ShareModal({ listId, listName, onClose }: ShareModalProps) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'editor' | 'viewer'>('editor')
   const [loading, setLoading] = useState(false)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true)
+  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const supabase = createClient()
+
+  // Fetch users the current user has shared lists with, sorted by shared count
+  useEffect(() => {
+    const fetchSuggestedUsers = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Get all lists owned by current user
+      const { data: ownedLists } = await supabase
+        .from('shopping_lists')
+        .select('id')
+        .eq('owner_id', user.id)
+
+      if (!ownedLists || ownedLists.length === 0) {
+        setLoadingSuggestions(false)
+        return
+      }
+
+      const ownedListIds = ownedLists.map(l => l.id)
+
+      // Get all members of those lists (excluding owner entries)
+      const { data: members } = await supabase
+        .from('shopping_list_members')
+        .select(`
+          user_id,
+          list_id,
+          profiles:user_id (
+            id,
+            email,
+            display_name
+          )
+        `)
+        .in('list_id', ownedListIds)
+        .neq('user_id', user.id)
+
+      if (!members || members.length === 0) {
+        setLoadingSuggestions(false)
+        return
+      }
+
+      // Count shared lists per user
+      const userCounts = new Map<string, { user: SuggestedUser; count: number }>()
+
+      for (const member of members) {
+        const profile = member.profiles as unknown as { id: string; email: string; display_name: string | null }
+        if (!profile) continue
+
+        const existing = userCounts.get(profile.id)
+        if (existing) {
+          existing.count++
+        } else {
+          userCounts.set(profile.id, {
+            user: {
+              id: profile.id,
+              email: profile.email,
+              display_name: profile.display_name,
+              sharedCount: 0,
+            },
+            count: 1,
+          })
+        }
+      }
+
+      // Convert to array, set counts, and sort by count descending
+      const suggestions = Array.from(userCounts.values())
+        .map(({ user, count }) => ({ ...user, sharedCount: count }))
+        .sort((a, b) => b.sharedCount - a.sharedCount)
+
+      setSuggestedUsers(suggestions)
+      setLoadingSuggestions(false)
+    }
+
+    fetchSuggestedUsers()
+  }, [supabase])
+
+  const selectUser = (user: SuggestedUser) => {
+    setEmail(user.email)
+    setShowDropdown(false)
+  }
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -93,7 +182,7 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
         </div>
 
         <form onSubmit={handleShare} className="space-y-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-zinc-300 mb-1">
               Email address
             </label>
@@ -101,9 +190,47 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => suggestedUsers.length > 0 && setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
               placeholder="friend@example.com"
               className="w-full px-4 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-violet-500"
             />
+
+            {/* Suggested users dropdown */}
+            {showDropdown && suggestedUsers.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-zinc-700 border border-zinc-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div className="px-3 py-2 text-xs text-zinc-400 border-b border-zinc-600">
+                  People you've shared with
+                </div>
+                {suggestedUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => selectUser(user)}
+                    className="w-full px-3 py-2 text-left hover:bg-zinc-600 transition-colors flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="text-white text-sm">
+                        {user.display_name || user.email}
+                      </p>
+                      {user.display_name && (
+                        <p className="text-zinc-400 text-xs">{user.email}</p>
+                      )}
+                    </div>
+                    <span className="text-xs bg-violet-600/30 text-violet-300 px-2 py-0.5 rounded-full">
+                      {user.sharedCount} {user.sharedCount === 1 ? 'list' : 'lists'}
+                    </span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowDropdown(false)}
+                  className="w-full px-3 py-2 text-xs text-zinc-400 hover:bg-zinc-600 border-t border-zinc-600"
+                >
+                  Or type a new email above
+                </button>
+              </div>
+            )}
           </div>
 
           <div>

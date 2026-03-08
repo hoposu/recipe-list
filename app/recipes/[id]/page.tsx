@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import Logo from '@/components/Logo'
+import ReactionBar from '@/components/ReactionBar'
 
 interface Ingredient {
   id: string
@@ -274,7 +275,7 @@ export default function RecipeDetailPage() {
       .eq('id', recipe.id)
 
     if (!error) {
-      router.push('/dashboard')
+      router.push('/profile')
       router.refresh()
     } else {
       setDeleting(false)
@@ -656,7 +657,7 @@ export default function RecipeDetailPage() {
               {debugInfo}
             </p>
           )}
-          <Link href="/dashboard" className="text-violet-400 hover:text-violet-300">
+          <Link href="/profile" className="text-violet-400 hover:text-violet-300">
             ← Back to Dashboard
           </Link>
         </div>
@@ -673,7 +674,7 @@ export default function RecipeDetailPage() {
             <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
               Explore
             </Link>
-            <Link href="/dashboard" className="text-sm text-violet-400 hover:text-violet-300">
+            <Link href="/profile" className="text-sm text-violet-400 hover:text-violet-300">
               Dashboard
             </Link>
           </div>
@@ -1270,6 +1271,9 @@ export default function RecipeDetailPage() {
                       />
                     </div>
                   )}
+
+                  {/* Reactions */}
+                  <ReactionBar targetType="interaction" targetId={interaction.id} />
                     </div>
                   </div>
                 </div>

@@ -3,25 +3,39 @@ import Link from 'next/link'
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-8">
-          <h1 className="text-2xl font-bold text-white mb-6 text-center">
-            Create Your Account
+    <div className="min-h-screen relative flex items-center justify-center p-6">
+      {/* Aurora background */}
+      <div className="aurora-bg" />
+
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo */}
+        <Link href="/" className="flex items-center justify-center gap-3 mb-10">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+            <span className="text-2xl">🦛</span>
+          </div>
+          <span className="heading-serif text-3xl text-white">Recipe Pals</span>
+        </Link>
+
+        <div className="glass-card p-8">
+          <h1 className="heading-serif text-3xl text-white mb-2 text-center">
+            Join Recipe Pals
           </h1>
+          <p className="text-white/50 text-center mb-8">
+            Start your cooking journey
+          </p>
 
           <AuthForm mode="signup" />
 
-          <p className="mt-6 text-center text-sm text-zinc-400">
+          <p className="mt-8 text-center text-sm text-white/50">
             Already have an account?{' '}
-            <Link href="/login" className="text-violet-400 hover:text-violet-300 font-medium">
+            <Link href="/login" className="text-pink-400 hover:text-pink-300 font-medium">
               Log in
             </Link>
           </p>
         </div>
 
-        <p className="mt-4 text-center">
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-300">
+        <p className="mt-6 text-center">
+          <Link href="/" className="text-sm text-white/40 hover:text-white/70">
             &larr; Back to home
           </Link>
         </p>

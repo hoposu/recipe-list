@@ -12,115 +12,123 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900">
-      <main className="mx-auto max-w-4xl px-6 py-16">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Aurora background */}
+      <div className="aurora-bg" />
+
+      {/* Decorative floating elements */}
+      <div className="absolute top-20 left-10 w-64 h-64 bg-gradient-to-br from-pink-500/30 to-purple-500/30 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute bottom-20 right-10 w-80 h-80 bg-gradient-to-br from-blue-500/30 to-purple-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+
+      <main className="relative z-10 mx-auto max-w-5xl px-6 py-20">
         {/* Header */}
-        <header className="text-center mb-16">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            {/* Cute Hippo SVG */}
-            <svg
-              width="56"
-              height="56"
-              viewBox="0 0 100 100"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Head */}
-              <ellipse cx="50" cy="55" rx="35" ry="30" fill="#8B5CF6" />
-              {/* Snout */}
-              <ellipse cx="50" cy="70" rx="22" ry="16" fill="#A78BFA" />
-              {/* Left nostril */}
-              <ellipse cx="42" cy="70" rx="4" ry="3" fill="#6D28D9" />
-              {/* Right nostril */}
-              <ellipse cx="58" cy="70" rx="4" ry="3" fill="#6D28D9" />
-              {/* Left eye */}
-              <circle cx="35" cy="45" r="6" fill="white" />
-              <circle cx="36" cy="45" r="3" fill="#1F2937" />
-              {/* Right eye */}
-              <circle cx="65" cy="45" r="6" fill="white" />
-              <circle cx="66" cy="45" r="3" fill="#1F2937" />
-              {/* Left ear */}
-              <ellipse cx="22" cy="32" rx="8" ry="10" fill="#8B5CF6" />
-              <ellipse cx="22" cy="32" rx="4" ry="6" fill="#DDD6FE" />
-              {/* Right ear */}
-              <ellipse cx="78" cy="32" rx="8" ry="10" fill="#8B5CF6" />
-              <ellipse cx="78" cy="32" rx="4" ry="6" fill="#DDD6FE" />
-              {/* Cute blush marks */}
-              <ellipse cx="25" cy="58" rx="6" ry="3" fill="#F9A8D4" opacity="0.6" />
-              <ellipse cx="75" cy="58" rx="6" ry="3" fill="#F9A8D4" opacity="0.6" />
-            </svg>
-            <h1 className="text-5xl font-bold text-white">
-              Recipe Pals
-            </h1>
+        <header className="text-center mb-20 animate-fade-in-up">
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center shadow-2xl shadow-purple-500/30">
+              <span className="text-5xl">🦛</span>
+            </div>
           </div>
-          <p className="text-xl text-violet-300">
-            Turn any recipe into a shopping list. Share with family.
+          <h1 className="heading-serif text-6xl md:text-8xl text-white mb-6">
+            Recipe Pals
+          </h1>
+          <p className="text-xl md:text-2xl text-white/60 max-w-2xl mx-auto leading-relaxed">
+            Turn any recipe into a shopping list.<br />
+            Share with family. Cook together.
           </p>
         </header>
 
-        {/* Hero Section */}
-        <div className="bg-violet-600/20 border border-violet-500/30 rounded-2xl p-8 mb-12">
-          <h2 className="text-2xl font-semibold text-white mb-6">
+        {/* How it works */}
+        <div className="glass-card p-10 mb-16">
+          <h2 className="heading-serif text-3xl text-white mb-10 text-center">
             How it works
           </h2>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-10">
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-violet-600 text-white flex items-center justify-center text-xl font-bold mx-auto mb-3">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-5 shadow-lg shadow-pink-500/30">
                 1
               </div>
-              <h3 className="font-medium text-lg mb-2 text-white">
+              <h3 className="font-semibold text-xl mb-3 text-white">
                 Drop in recipes
               </h3>
-              <p className="text-zinc-400">
+              <p className="text-white/50 leading-relaxed">
                 Paste a URL or upload an image of any recipe
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-violet-600 text-white flex items-center justify-center text-xl font-bold mx-auto mb-3">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-5 shadow-lg shadow-purple-500/30">
                 2
               </div>
-              <h3 className="font-medium text-lg mb-2 text-white">
+              <h3 className="font-semibold text-xl mb-3 text-white">
                 AI extracts ingredients
               </h3>
-              <p className="text-zinc-400">
-                We automatically parse and categorize ingredients
+              <p className="text-white/50 leading-relaxed">
+                We automatically parse and categorize everything for you
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-violet-600 text-white flex items-center justify-center text-xl font-bold mx-auto mb-3">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-pink-500 text-white flex items-center justify-center text-2xl font-bold mx-auto mb-5 shadow-lg shadow-blue-500/30">
                 3
               </div>
-              <h3 className="font-medium text-lg mb-2 text-white">
+              <h3 className="font-semibold text-xl mb-3 text-white">
                 Shop together
               </h3>
-              <p className="text-zinc-400">
+              <p className="text-white/50 leading-relaxed">
                 Share your list with family, check off items in real-time
               </p>
             </div>
           </div>
         </div>
 
+        {/* Features Grid */}
+        <div className="grid md:grid-cols-2 gap-6 mb-16">
+          <div className="glass-card glass-card-hover p-8">
+            <div className="text-4xl mb-4">🍳</div>
+            <h3 className="text-xl font-semibold text-white mb-2">Track what you cook</h3>
+            <p className="text-white/50">Rate recipes, leave notes, and remember your favorites</p>
+          </div>
+          <div className="glass-card glass-card-hover p-8">
+            <div className="text-4xl mb-4">👥</div>
+            <h3 className="text-xl font-semibold text-white mb-2">Social cooking</h3>
+            <p className="text-white/50">See what your friends are making and get inspired</p>
+          </div>
+          <div className="glass-card glass-card-hover p-8">
+            <div className="text-4xl mb-4">🛒</div>
+            <h3 className="text-xl font-semibold text-white mb-2">Smart shopping lists</h3>
+            <p className="text-white/50">Automatically combine ingredients from multiple recipes</p>
+          </div>
+          <div className="glass-card glass-card-hover p-8">
+            <div className="text-4xl mb-4">📱</div>
+            <h3 className="text-xl font-semibold text-white mb-2">Works anywhere</h3>
+            <p className="text-white/50">Access your recipes from any device, anytime</p>
+          </div>
+        </div>
+
         {/* CTA */}
-        <div className="text-center space-y-4">
-          <div className="flex justify-center gap-4">
+        <div className="text-center space-y-6">
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               href="/signup"
-              className="bg-violet-600 hover:bg-violet-700 text-white font-semibold py-3 px-8 rounded-full text-lg transition-colors"
+              className="glass-button glass-button-active text-lg px-10 py-4 font-semibold"
             >
               Get Started
             </Link>
             <Link
               href="/login"
-              className="border-2 border-violet-500 text-violet-300 hover:bg-violet-500/20 font-semibold py-3 px-8 rounded-full text-lg transition-colors"
+              className="glass-button text-lg px-10 py-4 text-white/90 hover:text-white font-semibold"
             >
               Log In
             </Link>
           </div>
-          <p className="text-zinc-500 text-sm">
+          <p className="text-white/40 text-sm">
             Free to use. No credit card required.
           </p>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 text-center py-8 text-white/30 text-sm">
+        Made with love for home cooks everywhere
+      </footer>
     </div>
   )
 }

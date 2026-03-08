@@ -1,21 +1,9 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import Logo from '@/components/Logo'
 import FeedHeader from '@/components/FeedHeader'
-
-const tagColors: Record<string, string> = {
-  Vegetarian: 'bg-green-600/30 text-green-400',
-  Soup: 'bg-amber-600/30 text-amber-400',
-  Chicken: 'bg-yellow-600/30 text-yellow-400',
-  Seafood: 'bg-cyan-600/30 text-cyan-400',
-  Beef: 'bg-red-600/30 text-red-400',
-  Pork: 'bg-pink-600/30 text-pink-400',
-  Breakfast: 'bg-orange-600/30 text-orange-400',
-  Sweet: 'bg-fuchsia-600/30 text-fuchsia-400',
-  Savory: 'bg-indigo-600/30 text-indigo-400',
-  Holiday: 'bg-rose-600/30 text-rose-400',
-}
+import ReactionBar from '@/components/ReactionBar'
+import FeedComments from '@/components/FeedComments'
 
 interface Activity {
   id: string
@@ -51,6 +39,15 @@ export default async function FeedPage() {
   if (!user) {
     redirect('/login')
   }
+
+  // Get user's display name for welcome message
+  const { data: currentProfile } = await supabase
+    .from('profiles')
+    .select('display_name, email')
+    .eq('id', user.id)
+    .single()
+
+  const displayName = currentProfile?.display_name || currentProfile?.email?.split('@')[0] || 'Chef'
 
   // Fetch activities without joins first (more reliable)
   const { data: rawActivities } = await supabase
@@ -95,8 +92,6 @@ export default async function FeedPage() {
     recipe_interactions: a.interaction_id ? interactionMap.get(a.interaction_id) || null : null,
   })) || []
 
-  console.log('Fetched activities:', activities.length)
-
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
@@ -106,278 +101,239 @@ export default async function FeedPage() {
     const diffDays = Math.floor(diffMs / 86400000)
 
     if (diffMins < 1) return 'just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString()
+    if (diffMins < 60) return `${diffMins}m`
+    if (diffHours < 24) return `${diffHours}h`
+    if (diffDays < 7) return `${diffDays}d`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
-
-  // Helper: get the start of the week (Sunday)
-  const getWeekStart = (date: Date) => {
-    const d = new Date(date)
-    const day = d.getDay()
-    d.setDate(d.getDate() - day)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
-
-  // Helper: format week range
-  const formatWeekRange = (weekStart: Date) => {
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekEnd.getDate() + 6)
-
-    const startMonth = weekStart.toLocaleDateString('en-US', { month: 'short' })
-    const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'short' })
-    const startDay = weekStart.getDate()
-    const endDay = weekEnd.getDate()
-
-    if (startMonth === endMonth) {
-      return `${startMonth} ${startDay} - ${endDay}`
-    }
-    return `${startMonth} ${startDay} - ${endMonth} ${endDay}`
-  }
-
-  // Helper: get day name
-  const getDayName = (date: Date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'long' })
-  }
-
-  // Group activities by week and day
-  const groupedActivities = activities.reduce((acc, activity) => {
-    const date = new Date(activity.created_at)
-    const weekStart = getWeekStart(date)
-    const weekKey = weekStart.toISOString()
-    const dayKey = getDayName(date)
-
-    if (!acc[weekKey]) {
-      acc[weekKey] = { weekStart, days: {} }
-    }
-    if (!acc[weekKey].days[dayKey]) {
-      acc[weekKey].days[dayKey] = []
-    }
-    acc[weekKey].days[dayKey].push(activity)
-
-    return acc
-  }, {} as Record<string, { weekStart: Date; days: Record<string, typeof activities> }>)
-
-  // Sort weeks (most recent first)
-  type WeekData = { weekStart: Date; days: Record<string, Activity[]> }
-  const sortedWeeks = (Object.entries(groupedActivities) as [string, WeekData][])
-    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-
-  const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
   return (
-    <div className="min-h-screen bg-zinc-900">
-      <header className="bg-zinc-800 border-b border-zinc-700">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+    <div className="min-h-screen relative">
+      {/* Aurora background */}
+      <div className="aurora-bg" />
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass-card border-0 border-b border-white/10 rounded-none">
+        <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <Logo />
-            <div className="flex items-center gap-4">
-              <Link
-                href="/explore"
-                className="text-sm text-violet-400 hover:text-violet-300 font-medium"
-              >
+            <Link href="/feed" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center">
+                <span className="text-white text-lg">🦛</span>
+              </div>
+              <span className="text-xl font-semibold text-white">Recipe Pals</span>
+            </Link>
+            <nav className="flex items-center gap-2">
+              <Link href="/explore" className="glass-button text-sm text-white/90 hover:text-white">
                 Explore
               </Link>
-              <Link
-                href="/dashboard"
-                className="text-sm text-violet-400 hover:text-violet-300 font-medium"
-              >
-                Dashboard
+              <Link href="/profile" className="glass-button text-sm text-white/90 hover:text-white">
+                Profile
               </Link>
-              <Link
-                href="/settings"
-                className="text-sm text-violet-400 hover:text-violet-300 font-medium"
-              >
+              <Link href="/settings" className="glass-button text-sm text-white/90 hover:text-white">
                 Settings
               </Link>
-            </div>
+            </nav>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-        <FeedHeader />
+      <main className="max-w-2xl mx-auto px-6 py-12">
+        {/* Welcome Section */}
+        <div className="mb-12 animate-fade-in-up">
+          <h1 className="heading-serif text-5xl md:text-6xl text-white mb-3">
+            Welcome back, {displayName}!
+          </h1>
+          <p className="text-white/60 text-lg">
+            See what your friends have been cooking.
+          </p>
+        </div>
 
+        {/* Feed Header with Post Button */}
+        <div className="mb-8">
+          <FeedHeader />
+        </div>
+
+        {/* Activity Feed */}
         {activities && activities.length > 0 ? (
-          <div className="space-y-8">
-            {sortedWeeks.map(([weekKey, weekData]) => (
-              <div key={weekKey}>
-                {/* Week Header */}
-                <h2 className="text-lg font-semibold text-white mb-4 pb-2 border-b border-zinc-700">
-                  {formatWeekRange(weekData.weekStart)}
-                </h2>
+          <div className="space-y-4 stagger-children">
+            {activities.map((activity) => {
+              const profile = activity.profiles as any
+              const recipe = activity.recipes as any
+              const interaction = activity.recipe_interactions as any
+              const userName = profile?.display_name || profile?.email?.split('@')[0] || 'Someone'
 
-                <div className="space-y-6">
-                  {dayOrder
-                    .filter(day => weekData.days[day] && weekData.days[day].length > 0)
-                    .reverse() // Most recent day first
-                    .map(day => (
-                      <div key={day}>
-                        {/* Day Header */}
-                        <h3 className="text-sm font-medium text-zinc-400 mb-3">
-                          {day}
-                        </h3>
-
-                        <div className="space-y-3">
-                          {weekData.days[day].map((activity) => {
-                            const profile = activity.profiles as any
-                            const recipe = activity.recipes as any
-                            const interaction = activity.recipe_interactions as any
-                            const userName = profile?.display_name || profile?.email?.split('@')[0] || 'Someone'
-
-                            return (
-                              <div
-                                key={activity.id}
-                                className="bg-zinc-800 border border-zinc-700 rounded-xl p-4"
-                              >
-                  <div className="flex items-start gap-3">
+              return (
+                <article
+                  key={activity.id}
+                  className="glass-card glass-card-hover p-5"
+                >
+                  <div className="flex gap-4">
                     {/* Avatar */}
-                    {profile?.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt={userName}
-                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-violet-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                        {userName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <Link href={`/profile/${activity.user_id}`} className="flex-shrink-0">
+                      {profile?.avatar_url ? (
+                        <img
+                          src={profile.avatar_url}
+                          alt={userName}
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-white/20 hover:ring-pink-500/50 transition-all"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg ring-2 ring-white/20 hover:ring-pink-500/50 transition-all">
+                          {userName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </Link>
 
                     <div className="flex-1 min-w-0">
                       {/* Signup Activity */}
                       {activity.type === 'signup' && (
-                        <p className="text-zinc-200">
-                          <span className="font-semibold text-white">{userName}</span>
-                          {' '}joined Recipe Pals
-                          <span className="ml-2 text-xs px-2 py-0.5 bg-green-600/30 text-green-400 rounded">
+                        <div>
+                          <p className="text-white">
+                            <Link href={`/profile/${activity.user_id}`} className="font-semibold hover:text-pink-400 transition-colors">{userName}</Link>
+                            <span className="text-white/60"> joined Recipe Pals</span>
+                          </p>
+                          <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                             New member
                           </span>
-                        </p>
+                        </div>
                       )}
 
                       {/* New Recipe Activity */}
                       {activity.type === 'new_recipe' && recipe && (
                         <div>
-                          <p className="text-zinc-200">
-                            <span className="font-semibold text-white">{userName}</span>
-                            {' '}added a new recipe:{' '}
-                            <Link
-                              href={`/recipes/${recipe.id}`}
-                              className="text-violet-400 hover:text-violet-300 font-medium"
-                            >
-                              {recipe.title}
-                            </Link>
+                          <p className="text-white mb-1">
+                            <Link href={`/profile/${activity.user_id}`} className="font-semibold hover:text-pink-400 transition-colors">{userName}</Link>
+                            <span className="text-white/60"> added a new recipe</span>
                           </p>
-                          {recipe.tags && recipe.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {(recipe.tags as string[]).map((tag: string) => (
-                                <span
-                                  key={tag}
-                                  className={`text-xs px-1.5 py-0.5 rounded ${tagColors[tag] || 'bg-zinc-600/30 text-zinc-400'}`}
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {/* Recipe Image */}
-                          {recipe.image_url && (
-                            <Link href={`/recipes/${recipe.id}`} className="block mt-3">
-                              <img
-                                src={recipe.image_url}
-                                alt={recipe.title}
-                                className="w-full max-w-md h-48 object-cover rounded-lg hover:opacity-90 transition-opacity"
-                              />
-                            </Link>
-                          )}
+
+                          {/* Recipe Card */}
+                          <Link href={`/recipes/${recipe.id}`} className="block mt-3 group">
+                            {recipe.image_url ? (
+                              <div className="relative rounded-2xl overflow-hidden">
+                                <img
+                                  src={recipe.image_url}
+                                  alt={recipe.title}
+                                  className="w-full h-56 object-cover image-hover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                                <div className="absolute bottom-0 left-0 right-0 p-4">
+                                  <h3 className="text-xl font-semibold text-white text-shadow">
+                                    {recipe.title}
+                                  </h3>
+                                  {recipe.tags && recipe.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {(recipe.tags as string[]).slice(0, 3).map((tag: string) => (
+                                        <span key={tag} className="tag-pill">
+                                          {tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="glass-card p-4 group-hover:bg-white/10 transition-colors">
+                                <h3 className="text-lg font-semibold text-white">
+                                  {recipe.title}
+                                </h3>
+                                {recipe.tags && recipe.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {(recipe.tags as string[]).slice(0, 3).map((tag: string) => (
+                                      <span key={tag} className="tag-pill">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </Link>
                         </div>
                       )}
 
                       {/* Cooked Activity */}
                       {activity.type === 'cooked' && recipe && (
                         <div>
-                          <p className="text-zinc-200">
-                            <span className="font-semibold text-white">{userName}</span>
-                            {' '}cooked{' '}
+                          <p className="text-white mb-1">
+                            <Link href={`/profile/${activity.user_id}`} className="font-semibold hover:text-pink-400 transition-colors">{userName}</Link>
+                            <span className="text-white/60"> cooked </span>
                             <Link
                               href={`/recipes/${recipe.id}`}
-                              className="text-violet-400 hover:text-violet-300 font-medium"
+                              className="text-white hover:text-pink-400 transition-colors font-medium"
                             >
                               {recipe.title}
                             </Link>
                           </p>
-                          {recipe.tags && recipe.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {(recipe.tags as string[]).map((tag: string) => (
+
+                          {/* Rating */}
+                          {interaction?.rating && (
+                            <div className="flex items-center gap-1 mt-2">
+                              {[1, 2, 3, 4, 5].map((star) => (
                                 <span
-                                  key={tag}
-                                  className={`text-xs px-1.5 py-0.5 rounded ${tagColors[tag] || 'bg-zinc-600/30 text-zinc-400'}`}
+                                  key={star}
+                                  className={star <= interaction.rating ? 'text-yellow-400' : 'text-white/20'}
                                 >
-                                  {tag}
+                                  ★
                                 </span>
                               ))}
                             </div>
                           )}
-                          {interaction?.rating && (
-                            <p className="text-yellow-400 text-sm mt-1">
-                              {'★'.repeat(interaction.rating)}{'☆'.repeat(5 - interaction.rating)}
-                            </p>
-                          )}
+
+                          {/* Comment */}
                           {interaction?.content && (
-                            <div className="mt-2 space-y-1">
+                            <div className="mt-3 space-y-2">
                               {interaction.content.split('\n\n').map((part: string, i: number) => {
                                 if (part.startsWith('[Adjustments] ')) {
                                   return (
-                                    <p key={i} className="text-orange-400 text-sm">
+                                    <p key={i} className="text-sm text-amber-400/90 bg-amber-500/10 rounded-lg px-3 py-2 border border-amber-500/20">
                                       <span className="font-medium">Adjustments:</span> {part.replace('[Adjustments] ', '')}
                                     </p>
                                   )
                                 }
                                 return (
-                                  <p key={i} className="text-zinc-400 text-sm italic">
+                                  <p key={i} className="text-white/70 text-sm italic">
                                     "{part}"
                                   </p>
                                 )
                               })}
                             </div>
                           )}
+
+                          {/* User's cooked photo */}
                           {interaction?.image_url && (
                             <div className="mt-3">
                               <img
                                 src={interaction.image_url}
-                                alt="User submitted photo"
-                                className="max-w-full h-auto max-h-48 rounded-lg object-cover"
+                                alt="Cooked dish"
+                                className="w-full max-h-72 object-cover rounded-2xl"
                               />
                             </div>
                           )}
                         </div>
                       )}
 
-                                    {/* Timestamp */}
-                                    <p className="text-xs text-zinc-500 mt-1">
-                                      {formatTimeAgo(activity.created_at)}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
+                      {/* Timestamp and Reactions */}
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-xs text-white/40">
+                          {formatTimeAgo(activity.created_at)}
+                        </p>
+                        <ReactionBar targetType="activity" targetId={activity.id} />
                       </div>
-                    ))}
-                </div>
-              </div>
-            ))}
+
+                      {/* Comments */}
+                      <FeedComments activityId={activity.id} />
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
           </div>
         ) : (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-8 text-center">
-            <p className="text-zinc-400 mb-2">
-              No activity yet.
+          <div className="glass-card p-12 text-center">
+            <div className="text-5xl mb-4">🍳</div>
+            <p className="text-white/80 text-lg mb-2">
+              No activity yet
             </p>
-            <p className="text-sm text-zinc-500">
+            <p className="text-white/50">
               When people join, add recipes, or cook something, it will show up here.
             </p>
           </div>

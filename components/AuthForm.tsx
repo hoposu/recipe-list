@@ -30,31 +30,11 @@ export default function AuthForm({ mode }: AuthFormProps) {
         if (error) throw error
         setError('Check your email for a confirmation link!')
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
         if (error) throw error
-
-        // Check if this is user's first login (no activities yet)
-        if (data.user) {
-          const { data: existingActivity } = await supabase
-            .from('activities')
-            .select('id')
-            .eq('user_id', data.user.id)
-            .eq('type', 'signup')
-            .single()
-
-          // If no signup activity exists, create one
-          if (!existingActivity) {
-            await supabase
-              .from('activities')
-              .insert({
-                user_id: data.user.id,
-                type: 'signup',
-              })
-          }
-        }
 
         router.push('/feed')
         router.refresh()
@@ -67,9 +47,9 @@ export default function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-zinc-300 mb-1">
+        <label htmlFor="email" className="block text-sm font-medium text-white/60 mb-2">
           Email
         </label>
         <input
@@ -78,13 +58,13 @@ export default function AuthForm({ mode }: AuthFormProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full px-4 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+          className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent transition-all"
           placeholder="you@example.com"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-zinc-300 mb-1">
+        <label htmlFor="password" className="block text-sm font-medium text-white/60 mb-2">
           Password
         </label>
         <input
@@ -94,21 +74,25 @@ export default function AuthForm({ mode }: AuthFormProps) {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          className="w-full px-4 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+          className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent transition-all"
           placeholder="••••••••"
         />
       </div>
 
       {error && (
-        <p className={`text-sm ${error.includes('Check your email') ? 'text-green-400' : 'text-red-400'}`}>
+        <div className={`text-sm px-4 py-3 rounded-xl ${
+          error.includes('Check your email')
+            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+        }`}>
           {error}
-        </p>
+        </div>
       )}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2 px-4 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-800 text-white font-semibold rounded-lg transition-colors"
+        className="w-full py-3 px-4 bg-white text-black font-semibold rounded-xl hover:bg-white/90 disabled:bg-white/50 transition-all"
       >
         {loading ? 'Loading...' : mode === 'signup' ? 'Sign Up' : 'Log In'}
       </button>

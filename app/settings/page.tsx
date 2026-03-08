@@ -258,7 +258,7 @@ export default function SettingsPage() {
                 Explore
               </Link>
               <Link
-                href="/dashboard"
+                href="/profile"
                 className="text-sm text-violet-400 hover:text-violet-300 font-medium"
               >
                 Dashboard

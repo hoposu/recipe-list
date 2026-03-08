@@ -93,7 +93,7 @@ export default function NewRecipePage() {
         })
 
       // Success! Go back to dashboard
-      router.push('/dashboard')
+      router.push('/profile')
       router.refresh()
     } catch (error) {
       console.error('Error saving recipe:', error)
@@ -118,7 +118,7 @@ export default function NewRecipePage() {
             <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
               Explore
             </Link>
-            <Link href="/dashboard" className="text-sm text-violet-400 hover:text-violet-300">
+            <Link href="/profile" className="text-sm text-violet-400 hover:text-violet-300">
               Dashboard
             </Link>
           </div>

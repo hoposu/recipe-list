@@ -216,7 +216,7 @@ export default function ShoppingListPage() {
       .eq('id', list.id)
 
     if (!error) {
-      router.push('/dashboard')
+      router.push('/profile')
       router.refresh()
     } else {
       setDeleting(false)
@@ -271,7 +271,7 @@ export default function ShoppingListPage() {
       <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-zinc-500 mb-4">Shopping list not found</p>
-          <Link href="/dashboard" className="text-violet-400 hover:text-violet-300">
+          <Link href="/profile" className="text-violet-400 hover:text-violet-300">
             ← Back to Dashboard
           </Link>
         </div>
@@ -288,7 +288,7 @@ export default function ShoppingListPage() {
             <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
               Explore
             </Link>
-            <Link href="/dashboard" className="text-sm text-violet-400 hover:text-violet-300">
+            <Link href="/profile" className="text-sm text-violet-400 hover:text-violet-300">
               Dashboard
             </Link>
           </div>

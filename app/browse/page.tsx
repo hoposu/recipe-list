@@ -36,10 +36,10 @@ export default async function BrowsePage() {
         <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
           <Logo />
           <Link
-            href="/dashboard"
+            href="/profile"
             className="text-sm text-violet-400 hover:text-violet-300"
           >
-            &larr; Back to Dashboard
+            &larr; Back to Profile
           </Link>
         </div>
       </header>

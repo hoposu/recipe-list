@@ -138,7 +138,7 @@ export default function NewShoppingListPage() {
             <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
               Explore
             </Link>
-            <Link href="/dashboard" className="text-sm text-violet-400 hover:text-violet-300">
+            <Link href="/profile" className="text-sm text-violet-400 hover:text-violet-300">
               Dashboard
             </Link>
           </div>

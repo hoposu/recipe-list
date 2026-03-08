@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import Logo from '@/components/Logo'
 import { useDraftList } from '@/hooks/useDraftList'
 
 interface Recipe {
@@ -30,20 +29,6 @@ interface Tag {
   id: string
   name: string
   color_class: string
-}
-
-// Fallback colors for tags not in database (during migration)
-const fallbackTagColors: Record<string, string> = {
-  Vegetarian: 'bg-green-600/30 text-green-400 border-green-600/50',
-  Soup: 'bg-amber-600/30 text-amber-400 border-amber-600/50',
-  Chicken: 'bg-yellow-600/30 text-yellow-400 border-yellow-600/50',
-  Seafood: 'bg-cyan-600/30 text-cyan-400 border-cyan-600/50',
-  Beef: 'bg-red-600/30 text-red-400 border-red-600/50',
-  Pork: 'bg-pink-600/30 text-pink-400 border-pink-600/50',
-  Breakfast: 'bg-orange-600/30 text-orange-400 border-orange-600/50',
-  Sweet: 'bg-fuchsia-600/30 text-fuchsia-400 border-fuchsia-600/50',
-  Savory: 'bg-indigo-600/30 text-indigo-400 border-indigo-600/50',
-  Holiday: 'bg-rose-600/30 text-rose-400 border-rose-600/50',
 }
 
 type SortOption = 'recent' | 'rating' | 'times_cooked' | 'my_rating'
@@ -101,8 +86,6 @@ export default function ExplorePage() {
         .select('id, title, image_url, tags, created_at, user_id, visibility')
         .order('created_at', { ascending: false })
 
-      console.log('Recipes fetched:', recipesData?.length, 'Error:', recipesError)
-
       if (recipesError) {
         console.error('Error fetching recipes:', recipesError)
         setDebugMsg(`Error: ${recipesError.message} (${recipesError.code})`)
@@ -111,7 +94,6 @@ export default function ExplorePage() {
       }
 
       if (!recipesData || recipesData.length === 0) {
-        console.log('No recipes found')
         setDebugMsg('No recipes returned from query. Check RLS policies on recipes table.')
         setLoading(false)
         return
@@ -136,7 +118,7 @@ export default function ExplorePage() {
         .eq('type', 'cooked')
         .in('recipe_id', recipeIds.length > 0 ? recipeIds : ['none'])
 
-      // Fetch want_to_cook entries for current user (handle if table doesn't exist)
+      // Fetch want_to_cook entries for current user
       let wantToCookSet = new Set<string>()
       try {
         const { data: wantToCookData } = await supabase
@@ -200,14 +182,12 @@ export default function ExplorePage() {
 
     try {
       if (currentState) {
-        // Remove from want to cook
         await supabase
           .from('want_to_cook')
           .delete()
           .eq('user_id', currentUserId)
           .eq('recipe_id', recipeId)
       } else {
-        // Add to want to cook
         const { error } = await supabase
           .from('want_to_cook')
           .insert({ user_id: currentUserId, recipe_id: recipeId })
@@ -219,7 +199,6 @@ export default function ExplorePage() {
         }
       }
 
-      // Update local state
       setRecipes(prev => prev.map(r =>
         r.id === recipeId ? { ...r, wantToCook: !currentState } : r
       ))
@@ -232,38 +211,32 @@ export default function ExplorePage() {
   const filteredRecipes = useMemo(() => {
     let result = [...recipes]
 
-    // Filter by creator
     if (filterCreator !== 'all') {
       result = result.filter(r => r.user_id === filterCreator)
     }
 
-    // Filter by cooked status
     if (filterCooked === 'cooked') {
       result = result.filter(r => r.iCooked)
     } else if (filterCooked === 'not_cooked') {
       result = result.filter(r => !r.iCooked)
     }
 
-    // Filter by want to cook
     if (filterWantToCook === 'want') {
       result = result.filter(r => r.wantToCook)
     } else if (filterWantToCook === 'not_want') {
       result = result.filter(r => !r.wantToCook)
     }
 
-    // Filter by minimum rating
     if (minRating > 0) {
       result = result.filter(r => r.avgRating !== null && r.avgRating >= minRating)
     }
 
-    // Filter by tags (recipe must have ALL selected tags)
     if (filterTags.length > 0) {
       result = result.filter(r =>
         filterTags.every(tag => r.tags.includes(tag))
       )
     }
 
-    // Sort
     switch (sortBy) {
       case 'rating':
         result.sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0))
@@ -283,153 +256,265 @@ export default function ExplorePage() {
     return result
   }, [recipes, sortBy, filterCreator, filterCooked, filterWantToCook, minRating, filterTags])
 
+  const createShoppingList = async () => {
+    if (draftRecipes.length === 0) return
+    setSavingList(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const recipeIds = draftRecipes.map(r => r.id)
+      const { data: ingredients } = await supabase
+        .from('ingredients')
+        .select('recipe_id, name, quantity, unit, category')
+        .in('recipe_id', recipeIds)
+
+      const { data: list, error: listError } = await supabase
+        .from('shopping_lists')
+        .insert({
+          owner_id: user.id,
+          name: `Shopping List - ${new Date().toLocaleDateString()}`,
+        })
+        .select()
+        .single()
+
+      if (listError) throw listError
+
+      await supabase
+        .from('shopping_list_members')
+        .insert({ list_id: list.id, user_id: user.id, role: 'owner' })
+
+      const consolidated = new Map<string, {
+        name: string
+        quantity: number
+        unit: string | null
+        category: string
+      }>()
+
+      for (const ing of ingredients || []) {
+        const key = `${ing.name.toLowerCase()}_${(ing.unit || '').toLowerCase()}`
+        if (consolidated.has(key)) {
+          const existing = consolidated.get(key)!
+          existing.quantity += ing.quantity || 1
+        } else {
+          consolidated.set(key, {
+            name: ing.name,
+            quantity: ing.quantity || 1,
+            unit: ing.unit,
+            category: ing.category || 'other',
+          })
+        }
+      }
+
+      const items = Array.from(consolidated.values()).map(ing => ({
+        list_id: list.id,
+        ingredient_name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        category: ing.category,
+        checked: false,
+        added_by: user.id,
+      }))
+
+      if (items.length > 0) {
+        await supabase
+          .from('shopping_list_items')
+          .insert(items)
+      }
+
+      const recipeLinks = recipeIds.map(recipeId => ({
+        list_id: list.id,
+        recipe_id: recipeId,
+      }))
+
+      await supabase
+        .from('shopping_list_recipes')
+        .insert(recipeLinks)
+
+      clearDraft()
+      router.push(`/shopping-lists/${list.id}`)
+    } catch (error) {
+      console.error('Error creating list:', error)
+      alert('Failed to create shopping list')
+    } finally {
+      setSavingList(false)
+    }
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
-        <p className="text-zinc-500">Loading recipes...</p>
+      <div className="min-h-screen relative">
+        <div className="aurora-bg" />
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="glass-card px-8 py-6">
+            <p className="text-white/60">Loading recipes...</p>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900">
-      <header className="bg-zinc-800 border-b border-zinc-700">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+    <div className="min-h-screen relative">
+      {/* Aurora background */}
+      <div className="aurora-bg" />
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass-card border-0 border-b border-white/10 rounded-none">
+        <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <Logo />
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-white font-medium">Explore</span>
-              <Link
-                href="/dashboard"
-                className="text-sm text-violet-400 hover:text-violet-300 font-medium"
-              >
-                Dashboard
+            <Link href="/feed" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center">
+                <span className="text-white text-lg">🦛</span>
+              </div>
+              <span className="text-xl font-semibold text-white">Recipe Pals</span>
+            </Link>
+            <nav className="flex items-center gap-2">
+              <Link href="/feed" className="glass-button text-sm text-white/90 hover:text-white">
+                Feed
               </Link>
-              <Link
-                href="/settings"
-                className="text-sm text-violet-400 hover:text-violet-300 font-medium"
-              >
+              <Link href="/profile" className="glass-button text-sm text-white/90 hover:text-white">
+                Profile
+              </Link>
+              <Link href="/settings" className="glass-button text-sm text-white/90 hover:text-white">
                 Settings
               </Link>
-            </div>
+            </nav>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-white">
-            Explore Recipes
-          </h1>
-          <Link
-            href="/recipes/new"
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            + Add Recipe
-          </Link>
+      <main className="max-w-6xl mx-auto px-6 py-12 pb-32">
+        {/* Header Section */}
+        <div className="mb-10 animate-fade-in-up">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="heading-serif text-5xl md:text-6xl text-white mb-3">
+                Explore
+              </h1>
+              <p className="text-white/60 text-lg">
+                Discover recipes from the community
+              </p>
+            </div>
+            <Link
+              href="/recipes/new"
+              className="glass-button glass-button-active text-sm flex items-center gap-2"
+            >
+              <span>+</span>
+              <span>Add Recipe</span>
+            </Link>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-4 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {/* Sort By */}
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">
-                Sort by
-              </label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white text-sm focus:ring-2 focus:ring-violet-500"
-              >
-                <option value="recent">Most Recent</option>
-                <option value="rating">Avg Rating</option>
-                <option value="times_cooked">Times Cooked</option>
-                <option value="my_rating">My Rating</option>
-              </select>
+        {/* Filters Panel */}
+        <div className="glass-card p-6 mb-8">
+          {/* Sort & Filter Row */}
+          <div className="flex flex-wrap gap-3 mb-6">
+            {/* Sort Pills */}
+            <div className="flex items-center gap-2">
+              <span className="text-white/40 text-sm">Sort:</span>
+              {[
+                { value: 'recent', label: 'Recent' },
+                { value: 'rating', label: 'Top Rated' },
+                { value: 'times_cooked', label: 'Most Cooked' },
+                { value: 'my_rating', label: 'My Favorites' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setSortBy(option.value as SortOption)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    sortBy === option.value
+                      ? 'bg-white text-black'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
+          </div>
 
+          {/* Filter Dropdowns */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {/* Min Rating */}
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">
+              <label className="block text-xs font-medium text-white/40 mb-2">
                 Min Rating
               </label>
               <select
                 value={minRating}
                 onChange={(e) => setMinRating(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white text-sm focus:ring-2 focus:ring-violet-500"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent"
               >
-                <option value={0}>Any</option>
-                <option value={1}>1+ stars</option>
-                <option value={2}>2+ stars</option>
-                <option value={3}>3+ stars</option>
-                <option value={4}>4+ stars</option>
-                <option value={5}>5 stars</option>
+                <option value={0} className="bg-zinc-900">Any</option>
+                <option value={1} className="bg-zinc-900">1+ stars</option>
+                <option value={2} className="bg-zinc-900">2+ stars</option>
+                <option value={3} className="bg-zinc-900">3+ stars</option>
+                <option value={4} className="bg-zinc-900">4+ stars</option>
+                <option value={5} className="bg-zinc-900">5 stars</option>
               </select>
             </div>
 
             {/* Creator */}
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">
+              <label className="block text-xs font-medium text-white/40 mb-2">
                 Creator
               </label>
               <select
                 value={filterCreator}
                 onChange={(e) => setFilterCreator(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white text-sm focus:ring-2 focus:ring-violet-500"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent"
               >
-                <option value="all">All Creators</option>
+                <option value="all" className="bg-zinc-900">All Creators</option>
                 {creators.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id} className="bg-zinc-900">{c.name}</option>
                 ))}
               </select>
             </div>
 
             {/* Cooked Status */}
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">
+              <label className="block text-xs font-medium text-white/40 mb-2">
                 Cooked?
               </label>
               <select
                 value={filterCooked}
                 onChange={(e) => setFilterCooked(e.target.value as FilterCooked)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white text-sm focus:ring-2 focus:ring-violet-500"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent"
               >
-                <option value="all">All</option>
-                <option value="cooked">I've Cooked</option>
-                <option value="not_cooked">Not Cooked Yet</option>
+                <option value="all" className="bg-zinc-900">All</option>
+                <option value="cooked" className="bg-zinc-900">I've Cooked</option>
+                <option value="not_cooked" className="bg-zinc-900">Not Cooked Yet</option>
               </select>
             </div>
 
             {/* Want to Cook */}
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">
-                Want to Cook
+              <label className="block text-xs font-medium text-white/40 mb-2">
+                Saved
               </label>
               <select
                 value={filterWantToCook}
                 onChange={(e) => setFilterWantToCook(e.target.value as FilterWantToCook)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white text-sm focus:ring-2 focus:ring-violet-500"
+                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent"
               >
-                <option value="all">All</option>
-                <option value="want">Want to Cook</option>
-                <option value="not_want">Not Marked</option>
+                <option value="all" className="bg-zinc-900">All</option>
+                <option value="want" className="bg-zinc-900">Saved Recipes</option>
+                <option value="not_want" className="bg-zinc-900">Not Saved</option>
               </select>
-            </div>
-
-            {/* Results count */}
-            <div className="flex items-end">
-              <p className="text-sm text-zinc-400 pb-2">
-                {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''}
-              </p>
             </div>
           </div>
 
           {/* Tag Filters */}
-          <div className="mt-4 pt-4 border-t border-zinc-700">
-            <label className="block text-xs font-medium text-zinc-400 mb-2">
-              Filter by Tags
-            </label>
+          <div className="pt-4 border-t border-white/10">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-medium text-white/40">
+                Filter by Tags
+              </label>
+              <span className="text-sm text-white/40">
+                {filteredRecipes.length} recipe{filteredRecipes.length !== 1 ? 's' : ''}
+              </span>
+            </div>
             <div className="flex flex-wrap gap-2">
               {availableTags.map(tag => {
                 const isSelected = filterTags.includes(tag.name)
@@ -443,10 +528,10 @@ export default function ExplorePage() {
                           : [...prev, tag.name]
                       )
                     }}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                       isSelected
-                        ? tag.color_class
-                        : 'bg-zinc-700/50 text-zinc-400 border-zinc-600 hover:bg-zinc-700'
+                        ? 'bg-white text-black'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
                     }`}
                   >
                     {tag.name}
@@ -456,9 +541,9 @@ export default function ExplorePage() {
               {filterTags.length > 0 && (
                 <button
                   onClick={() => setFilterTags([])}
-                  className="text-xs px-3 py-1.5 text-zinc-500 hover:text-zinc-300"
+                  className="px-4 py-2 text-sm text-white/40 hover:text-white"
                 >
-                  Clear tags
+                  Clear
                 </button>
               )}
             </div>
@@ -467,57 +552,73 @@ export default function ExplorePage() {
 
         {/* Recipe Grid */}
         {filteredRecipes.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
             {filteredRecipes.map((recipe) => (
-              <div
+              <article
                 key={recipe.id}
-                className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden hover:border-zinc-600 transition-colors"
+                className="glass-card glass-card-hover overflow-hidden group"
               >
                 {/* Image */}
-                <Link href={`/recipes/${recipe.id}`}>
+                <Link href={`/recipes/${recipe.id}`} className="block relative">
                   {recipe.image_url ? (
-                    <img
-                      src={recipe.image_url}
-                      alt={recipe.title}
-                      className="w-full h-40 object-cover"
-                    />
+                    <div className="relative aspect-[4/3] overflow-hidden">
+                      <img
+                        src={recipe.image_url}
+                        alt={recipe.title}
+                        className="w-full h-full object-cover image-hover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    </div>
                   ) : (
-                    <div className="w-full h-40 bg-zinc-700 flex items-center justify-center">
-                      <span className="text-4xl">🍽</span>
+                    <div className="aspect-[4/3] bg-gradient-to-br from-pink-500/20 via-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                      <span className="text-5xl">🍽</span>
+                    </div>
+                  )}
+
+                  {/* Overlay badges */}
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    {recipe.iCooked && (
+                      <span className="px-2.5 py-1 bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-medium rounded-full">
+                        Cooked
+                      </span>
+                    )}
+                    {recipe.user_id === currentUserId && (
+                      <span className="px-2.5 py-1 bg-purple-500/90 backdrop-blur-sm text-white text-xs font-medium rounded-full">
+                        Yours
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Rating badge */}
+                  {recipe.avgRating !== null && (
+                    <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2.5 py-1 bg-black/50 backdrop-blur-sm rounded-full">
+                      <span className="text-yellow-400 text-sm">★</span>
+                      <span className="text-white text-sm font-medium">{recipe.avgRating.toFixed(1)}</span>
                     </div>
                   )}
                 </Link>
 
-                <div className="p-4">
+                <div className="p-5">
                   {/* Title and Creator */}
                   <Link href={`/recipes/${recipe.id}`}>
-                    <h3 className="font-semibold text-white hover:text-violet-400 transition-colors truncate">
+                    <h3 className="text-lg font-semibold text-white group-hover:text-pink-400 transition-colors line-clamp-1">
                       {recipe.title}
                     </h3>
                   </Link>
-                  <p className="text-sm text-zinc-400 truncate">
-                    by {recipe.creator.display_name || recipe.creator.email}
+                  <p className="text-sm text-white/50 mt-1">
+                    by <Link href={`/profile/${recipe.user_id}`} className="hover:text-pink-400 transition-colors">{recipe.creator.display_name || recipe.creator.email}</Link>
                   </p>
 
                   {/* Tags */}
                   {recipe.tags && recipe.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {recipe.tags.slice(0, 3).map(tagName => {
-                        const tagData = availableTags.find(t => t.name === tagName)
-                        const colorClass = tagData?.color_class || fallbackTagColors[tagName] || 'bg-zinc-600/30 text-zinc-400 border-zinc-600/50'
-                        // Remove border classes for inline display
-                        const inlineColorClass = colorClass.replace(/border-\S+/g, '').trim()
-                        return (
-                          <span
-                            key={tagName}
-                            className={`text-xs px-1.5 py-0.5 rounded ${inlineColorClass}`}
-                          >
-                            {tagName}
-                          </span>
-                        )
-                      })}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {recipe.tags.slice(0, 3).map(tagName => (
+                        <span key={tagName} className="tag-pill">
+                          {tagName}
+                        </span>
+                      ))}
                       {recipe.tags.length > 3 && (
-                        <span className="text-xs text-zinc-500">
+                        <span className="text-xs text-white/40">
                           +{recipe.tags.length - 3}
                         </span>
                       )}
@@ -525,41 +626,20 @@ export default function ExplorePage() {
                   )}
 
                   {/* Stats */}
-                  <div className="flex items-center gap-3 mt-2 text-sm">
-                    {recipe.avgRating !== null && (
-                      <span className="text-yellow-400">
-                        {'★'.repeat(Math.round(recipe.avgRating))} {recipe.avgRating.toFixed(1)}
-                      </span>
-                    )}
-                    {recipe.timesCookedTotal > 0 && (
-                      <span className="text-zinc-400">
-                        {recipe.timesCookedTotal} cook{recipe.timesCookedTotal !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* User status badges */}
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {recipe.iCooked && (
-                      <span className="text-xs px-2 py-1 bg-green-600/30 text-green-400 rounded">
-                        Cooked {recipe.myRating && `(${recipe.myRating}★)`}
-                      </span>
-                    )}
-                    {recipe.user_id === currentUserId && (
-                      <span className="text-xs px-2 py-1 bg-violet-600/30 text-violet-400 rounded">
-                        My Recipe
-                      </span>
-                    )}
-                  </div>
+                  {recipe.timesCookedTotal > 0 && (
+                    <p className="text-sm text-white/40 mt-3">
+                      {recipe.timesCookedTotal} cook{recipe.timesCookedTotal !== 1 ? 's' : ''}
+                    </p>
+                  )}
 
                   {/* Action buttons */}
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2 mt-4">
                     <button
                       onClick={() => toggleWantToCook(recipe.id, recipe.wantToCook)}
-                      className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-all ${
                         recipe.wantToCook
-                          ? 'bg-orange-600/30 text-orange-400 border border-orange-600/50'
-                          : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                          ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white border border-white/10'
                       }`}
                     >
                       {recipe.wantToCook ? '♥ Saved' : '+ Save'}
@@ -576,26 +656,27 @@ export default function ExplorePage() {
                           })
                         }
                       }}
-                      className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-all ${
                         isInDraft(recipe.id)
-                          ? 'bg-violet-600/30 text-violet-400 border border-violet-600/50'
-                          : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white border border-white/10'
                       }`}
                     >
-                      {isInDraft(recipe.id) ? '✓ In List' : '+ Add to List'}
+                      {isInDraft(recipe.id) ? '✓ In List' : '+ List'}
                     </button>
                   </div>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         ) : (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-8 text-center">
-            <p className="text-zinc-400 mb-2">
+          <div className="glass-card p-12 text-center">
+            <div className="text-5xl mb-4">🔍</div>
+            <p className="text-white/80 text-lg mb-2">
               {recipes.length === 0 ? 'No recipes found.' : 'No recipes match your filters.'}
             </p>
             {debugMsg && (
-              <p className="text-xs text-red-400 mb-4 font-mono bg-zinc-900 p-2 rounded">
+              <p className="text-xs text-red-400 mb-4 font-mono bg-red-500/10 p-3 rounded-xl">
                 {debugMsg}
               </p>
             )}
@@ -609,7 +690,7 @@ export default function ExplorePage() {
                   setMinRating(0)
                   setFilterTags([])
                 }}
-                className="text-violet-400 hover:text-violet-300 font-medium"
+                className="text-pink-400 hover:text-pink-300 font-medium"
               >
                 Clear all filters
               </button>
@@ -620,123 +701,34 @@ export default function ExplorePage() {
 
       {/* Floating Draft List Panel */}
       {draftCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-zinc-800 border-t border-zinc-700 shadow-lg z-50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
+        <div className="fixed bottom-0 left-0 right-0 glass-card border-0 border-t border-white/10 rounded-none z-50">
+          <div className="max-w-6xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setShowDraftPanel(!showDraftPanel)}
                 className="flex items-center gap-3 text-white"
               >
-                <span className="bg-violet-600 text-white text-sm font-bold px-2.5 py-1 rounded-full">
+                <span className="bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm font-bold px-3 py-1.5 rounded-full">
                   {draftCount}
                 </span>
                 <span className="font-medium">
                   Recipe{draftCount !== 1 ? 's' : ''} in draft list
                 </span>
-                <span className="text-zinc-400 text-sm">
+                <span className="text-white/40 text-sm">
                   {showDraftPanel ? '▼' : '▲'}
                 </span>
               </button>
               <div className="flex items-center gap-3">
                 <button
                   onClick={clearDraft}
-                  className="text-sm text-zinc-400 hover:text-zinc-300"
+                  className="text-sm text-white/40 hover:text-white"
                 >
                   Clear
                 </button>
                 <button
-                  onClick={async () => {
-                    if (draftRecipes.length === 0) return
-                    setSavingList(true)
-                    try {
-                      const { data: { user } } = await supabase.auth.getUser()
-                      if (!user) throw new Error('Not authenticated')
-
-                      // Fetch ingredients for all recipes
-                      const recipeIds = draftRecipes.map(r => r.id)
-                      const { data: ingredients } = await supabase
-                        .from('ingredients')
-                        .select('recipe_id, name, quantity, unit, category')
-                        .in('recipe_id', recipeIds)
-
-                      // Create shopping list
-                      const { data: list, error: listError } = await supabase
-                        .from('shopping_lists')
-                        .insert({
-                          owner_id: user.id,
-                          name: `Shopping List - ${new Date().toLocaleDateString()}`,
-                        })
-                        .select()
-                        .single()
-
-                      if (listError) throw listError
-
-                      // Add owner as member
-                      await supabase
-                        .from('shopping_list_members')
-                        .insert({ list_id: list.id, user_id: user.id, role: 'owner' })
-
-                      // Consolidate ingredients
-                      const consolidated = new Map<string, {
-                        name: string
-                        quantity: number
-                        unit: string | null
-                        category: string
-                      }>()
-
-                      for (const ing of ingredients || []) {
-                        const key = `${ing.name.toLowerCase()}_${(ing.unit || '').toLowerCase()}`
-                        if (consolidated.has(key)) {
-                          const existing = consolidated.get(key)!
-                          existing.quantity += ing.quantity || 1
-                        } else {
-                          consolidated.set(key, {
-                            name: ing.name,
-                            quantity: ing.quantity || 1,
-                            unit: ing.unit,
-                            category: ing.category || 'other',
-                          })
-                        }
-                      }
-
-                      // Add items to shopping list
-                      const items = Array.from(consolidated.values()).map(ing => ({
-                        list_id: list.id,
-                        ingredient_name: ing.name,
-                        quantity: ing.quantity,
-                        unit: ing.unit,
-                        category: ing.category,
-                        checked: false,
-                        added_by: user.id,
-                      }))
-
-                      if (items.length > 0) {
-                        await supabase
-                          .from('shopping_list_items')
-                          .insert(items)
-                      }
-
-                      // Link recipes
-                      const recipeLinks = recipeIds.map(recipeId => ({
-                        list_id: list.id,
-                        recipe_id: recipeId,
-                      }))
-
-                      await supabase
-                        .from('shopping_list_recipes')
-                        .insert(recipeLinks)
-
-                      clearDraft()
-                      router.push(`/shopping-lists/${list.id}`)
-                    } catch (error) {
-                      console.error('Error creating list:', error)
-                      alert('Failed to create shopping list')
-                    } finally {
-                      setSavingList(false)
-                    }
-                  }}
+                  onClick={createShoppingList}
                   disabled={savingList}
-                  className="px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-800 text-white text-sm font-semibold rounded-lg transition-colors"
+                  className="glass-button glass-button-active text-sm"
                 >
                   {savingList ? 'Creating...' : 'Create Shopping List'}
                 </button>
@@ -745,30 +737,30 @@ export default function ExplorePage() {
 
             {/* Expanded panel */}
             {showDraftPanel && (
-              <div className="mt-3 pt-3 border-t border-zinc-700">
-                <div className="flex flex-wrap gap-2">
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <div className="flex flex-wrap gap-3">
                   {draftRecipes.map(recipe => (
                     <div
                       key={recipe.id}
-                      className="flex items-center gap-2 bg-zinc-700/50 rounded-lg px-3 py-2"
+                      className="flex items-center gap-3 bg-white/10 rounded-xl px-3 py-2"
                     >
                       {recipe.image_url ? (
                         <img
                           src={recipe.image_url}
                           alt={recipe.title}
-                          className="w-8 h-8 object-cover rounded"
+                          className="w-10 h-10 object-cover rounded-lg"
                         />
                       ) : (
-                        <div className="w-8 h-8 bg-zinc-600 rounded flex items-center justify-center text-sm">
+                        <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center text-lg">
                           🍽
                         </div>
                       )}
-                      <span className="text-sm text-white truncate max-w-32">
+                      <span className="text-sm text-white truncate max-w-40">
                         {recipe.title}
                       </span>
                       <button
                         onClick={() => removeRecipe(recipe.id)}
-                        className="text-zinc-400 hover:text-red-400 ml-1"
+                        className="text-white/40 hover:text-red-400 ml-1"
                       >
                         ×
                       </button>
