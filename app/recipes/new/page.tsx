@@ -48,7 +48,7 @@ export default function NewRecipePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Insert recipe
+      // Insert recipe (default to public visibility)
       const { data: recipe, error: recipeError } = await supabase
         .from('recipes')
         .insert({
@@ -61,6 +61,7 @@ export default function NewRecipePage() {
           total_time_minutes: parsedRecipe.total_time_minutes,
           servings: parsedRecipe.servings,
           tags: parsedRecipe.tags || [],
+          visibility: 'public',
         })
         .select()
         .single()

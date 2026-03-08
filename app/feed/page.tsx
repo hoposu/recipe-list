@@ -33,6 +33,7 @@ interface Activity {
     id: string
     title: string
     tags: string[]
+    image_url: string | null
   } | null
   recipe_interactions: {
     id: string
@@ -72,7 +73,7 @@ export default async function FeedPage() {
   // Fetch recipes
   const { data: recipes } = await supabase
     .from('recipes')
-    .select('id, title, tags')
+    .select('id, title, tags, image_url')
     .in('id', recipeIds.length > 0 ? recipeIds : ['none'])
 
   // Fetch interactions
@@ -90,7 +91,7 @@ export default async function FeedPage() {
   const activities = rawActivities?.map(a => ({
     ...a,
     profiles: profileMap.get(a.user_id) || { email: 'Unknown', display_name: null, avatar_url: null },
-    recipes: a.recipe_id ? recipeMap.get(a.recipe_id) || { id: a.recipe_id, title: 'Unknown Recipe', tags: [] } : null,
+    recipes: a.recipe_id ? recipeMap.get(a.recipe_id) || { id: a.recipe_id, title: 'Unknown Recipe', tags: [], image_url: null } : null,
     recipe_interactions: a.interaction_id ? interactionMap.get(a.interaction_id) || null : null,
   })) || []
 
@@ -281,6 +282,16 @@ export default async function FeedPage() {
                                 </span>
                               ))}
                             </div>
+                          )}
+                          {/* Recipe Image */}
+                          {recipe.image_url && (
+                            <Link href={`/recipes/${recipe.id}`} className="block mt-3">
+                              <img
+                                src={recipe.image_url}
+                                alt={recipe.title}
+                                className="w-full max-w-md h-48 object-cover rounded-lg hover:opacity-90 transition-opacity"
+                              />
+                            </Link>
                           )}
                         </div>
                       )}

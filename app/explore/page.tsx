@@ -26,9 +26,14 @@ interface Recipe {
   wantToCook: boolean
 }
 
-const ALL_TAGS = ['Vegetarian', 'Soup', 'Chicken', 'Seafood', 'Beef', 'Pork', 'Breakfast', 'Sweet', 'Savory', 'Holiday'] as const
+interface Tag {
+  id: string
+  name: string
+  color_class: string
+}
 
-const tagColors: Record<string, string> = {
+// Fallback colors for tags not in database (during migration)
+const fallbackTagColors: Record<string, string> = {
   Vegetarian: 'bg-green-600/30 text-green-400 border-green-600/50',
   Soup: 'bg-amber-600/30 text-amber-400 border-amber-600/50',
   Chicken: 'bg-yellow-600/30 text-yellow-400 border-yellow-600/50',
@@ -67,6 +72,9 @@ export default function ExplorePage() {
   // Unique creators for filter dropdown
   const [creators, setCreators] = useState<{ id: string; name: string }[]>([])
 
+  // Available tags from database
+  const [availableTags, setAvailableTags] = useState<Tag[]>([])
+
   const supabase = createClient()
   const router = useRouter()
 
@@ -78,6 +86,14 @@ export default function ExplorePage() {
         return
       }
       setCurrentUserId(user.id)
+
+      // Fetch available tags from database
+      const { data: tagsData } = await supabase
+        .from('tags')
+        .select('*')
+        .order('name')
+
+      setAvailableTags(tagsData || [])
 
       // Fetch all recipes (RLS should handle visibility)
       const { data: recipesData, error: recipesError } = await supabase
@@ -415,25 +431,25 @@ export default function ExplorePage() {
               Filter by Tags
             </label>
             <div className="flex flex-wrap gap-2">
-              {ALL_TAGS.map(tag => {
-                const isSelected = filterTags.includes(tag)
+              {availableTags.map(tag => {
+                const isSelected = filterTags.includes(tag.name)
                 return (
                   <button
-                    key={tag}
+                    key={tag.id}
                     onClick={() => {
                       setFilterTags(prev =>
                         isSelected
-                          ? prev.filter(t => t !== tag)
-                          : [...prev, tag]
+                          ? prev.filter(t => t !== tag.name)
+                          : [...prev, tag.name]
                       )
                     }}
                     className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                       isSelected
-                        ? tagColors[tag]
+                        ? tag.color_class
                         : 'bg-zinc-700/50 text-zinc-400 border-zinc-600 hover:bg-zinc-700'
                     }`}
                   >
-                    {tag}
+                    {tag.name}
                   </button>
                 )
               })}
@@ -486,14 +502,20 @@ export default function ExplorePage() {
                   {/* Tags */}
                   {recipe.tags && recipe.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {recipe.tags.slice(0, 3).map(tag => (
-                        <span
-                          key={tag}
-                          className={`text-xs px-1.5 py-0.5 rounded ${tagColors[tag]?.replace(' border-', ' ').split(' ').slice(0, 2).join(' ') || 'bg-zinc-600/30 text-zinc-400'}`}
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      {recipe.tags.slice(0, 3).map(tagName => {
+                        const tagData = availableTags.find(t => t.name === tagName)
+                        const colorClass = tagData?.color_class || fallbackTagColors[tagName] || 'bg-zinc-600/30 text-zinc-400 border-zinc-600/50'
+                        // Remove border classes for inline display
+                        const inlineColorClass = colorClass.replace(/border-\S+/g, '').trim()
+                        return (
+                          <span
+                            key={tagName}
+                            className={`text-xs px-1.5 py-0.5 rounded ${inlineColorClass}`}
+                          >
+                            {tagName}
+                          </span>
+                        )
+                      })}
                       {recipe.tags.length > 3 && (
                         <span className="text-xs text-zinc-500">
                           +{recipe.tags.length - 3}

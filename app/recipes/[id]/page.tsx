@@ -91,6 +91,11 @@ export default function RecipeDetailPage() {
   const [savingEdits, setSavingEdits] = useState(false)
   const [newIngredient, setNewIngredient] = useState({ name: '', quantity: '', unit: '', category: 'other' })
 
+  // Tag editing state
+  const [availableTags, setAvailableTags] = useState<Tag[]>([])
+  const [editTags, setEditTags] = useState<string[]>([])
+  const [savingTags, setSavingTags] = useState(false)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -108,6 +113,14 @@ export default function RecipeDetailPage() {
 
         setIsAdmin(profile?.is_admin === true)
       }
+
+      // Fetch available tags
+      const { data: tagsData } = await supabase
+        .from('tags')
+        .select('*')
+        .order('name')
+
+      setAvailableTags(tagsData || [])
 
       // First try with profiles join
       let { data: recipeData, error: recipeError } = await supabase
@@ -316,6 +329,7 @@ export default function RecipeDetailPage() {
     if (!recipe) return
     setEditTitle(recipe.title)
     setEditIngredients([...ingredients])
+    setEditTags([...(recipe.tags || [])])
     setIsEditing(true)
   }
 
@@ -324,7 +338,17 @@ export default function RecipeDetailPage() {
     setIsEditing(false)
     setEditTitle('')
     setEditIngredients([])
+    setEditTags([])
     setNewIngredient({ name: '', quantity: '', unit: '', category: 'other' })
+  }
+
+  // Toggle a tag in edit mode
+  const toggleEditTag = (tagName: string) => {
+    setEditTags(prev =>
+      prev.includes(tagName)
+        ? prev.filter(t => t !== tagName)
+        : [...prev, tagName]
+    )
   }
 
   // Update ingredient in edit state
@@ -359,15 +383,23 @@ export default function RecipeDetailPage() {
     setSavingEdits(true)
 
     try {
-      // Update recipe title
-      if (editTitle !== recipe.title) {
-        const { error: titleError } = await supabase
+      // Check if title or tags changed
+      const titleChanged = editTitle !== recipe.title
+      const tagsChanged = JSON.stringify(editTags.sort()) !== JSON.stringify((recipe.tags || []).sort())
+
+      // Update recipe title and/or tags
+      if (titleChanged || tagsChanged) {
+        const updates: { title?: string; tags?: string[] } = {}
+        if (titleChanged) updates.title = editTitle
+        if (tagsChanged) updates.tags = editTags
+
+        const { error: updateError } = await supabase
           .from('recipes')
-          .update({ title: editTitle })
+          .update(updates)
           .eq('id', recipe.id)
 
-        if (titleError) throw titleError
-        setRecipe({ ...recipe, title: editTitle })
+        if (updateError) throw updateError
+        setRecipe({ ...recipe, ...(titleChanged ? { title: editTitle } : {}), ...(tagsChanged ? { tags: editTags } : {}) })
       }
 
       // Get current ingredient IDs
@@ -431,6 +463,7 @@ export default function RecipeDetailPage() {
       setIsEditing(false)
       setEditTitle('')
       setEditIngredients([])
+      setEditTags([])
     } catch (error) {
       console.error('Error saving edits:', error)
       alert('Failed to save changes')
@@ -692,6 +725,48 @@ export default function RecipeDetailPage() {
                     <span>🍽 {recipe.servings} servings</span>
                   )}
                 </div>
+              )}
+              {/* Tags - View or Edit mode */}
+              {isEditing ? (
+                <div className="mt-3">
+                  <p className="text-xs text-zinc-400 mb-2">Tags (click to toggle):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {availableTags.map((tag) => {
+                      const isSelected = editTags.includes(tag.name)
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => toggleEditTag(tag.name)}
+                          className={`text-xs px-2 py-1 rounded-full border transition-all ${
+                            isSelected
+                              ? tag.color_class
+                              : 'bg-zinc-700/50 text-zinc-500 border-zinc-600 hover:border-zinc-500'
+                          }`}
+                        >
+                          {isSelected ? '✓ ' : ''}{tag.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                recipe.tags && recipe.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {recipe.tags.map((tagName) => {
+                      const tag = availableTags.find(t => t.name === tagName)
+                      const colorClass = tag?.color_class || 'bg-zinc-600/30 text-zinc-400 border-zinc-600/50'
+                      return (
+                        <span
+                          key={tagName}
+                          className={`text-xs px-2 py-1 rounded-full border ${colorClass}`}
+                        >
+                          {tagName}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )
               )}
             </div>
             <div className="flex flex-col items-end gap-2">
