@@ -84,6 +84,29 @@ export default async function FeedPage() {
   const recipeMap = new Map(recipes?.map(r => [r.id, r]) || [])
   const interactionMap = new Map(interactions?.map(i => [i.id, i]) || [])
 
+  // Fetch reactions for all activities in bulk
+  const activityIds = rawActivities?.map(a => a.id) || []
+  const { data: allReactions } = await supabase
+    .from('reactions')
+    .select('target_id, emoji, user_id')
+    .eq('target_type', 'activity')
+    .in('target_id', activityIds.length > 0 ? activityIds : ['none'])
+
+  // Build reaction data per activity
+  const reactionsByActivity = new Map<string, { counts: Record<string, number>; userReactions: string[] }>()
+  for (const activityId of activityIds) {
+    reactionsByActivity.set(activityId, { counts: {}, userReactions: [] })
+  }
+  for (const reaction of allReactions || []) {
+    const data = reactionsByActivity.get(reaction.target_id)
+    if (data) {
+      data.counts[reaction.emoji] = (data.counts[reaction.emoji] || 0) + 1
+      if (reaction.user_id === user.id) {
+        data.userReactions.push(reaction.emoji)
+      }
+    }
+  }
+
   // Combine data
   const activities = rawActivities?.map(a => ({
     ...a,
@@ -162,10 +185,19 @@ export default async function FeedPage() {
               const interaction = activity.recipe_interactions as any
               const userName = profile?.display_name || profile?.email?.split('@')[0] || 'Someone'
 
+              const isCooked = activity.type === 'cooked'
+              const isSignup = activity.type === 'signup'
+
               return (
                 <article
                   key={activity.id}
-                  className="glass-card glass-card-hover p-5"
+                  className={`glass-card glass-card-hover p-5 ${
+                    isCooked
+                      ? 'bg-white/15'
+                      : isSignup
+                        ? 'bg-transparent border-white/5'
+                        : ''
+                  }`}
                 >
                   <div className="flex gap-4">
                     {/* Avatar */}
@@ -200,9 +232,9 @@ export default async function FeedPage() {
                       {/* New Recipe Activity */}
                       {activity.type === 'new_recipe' && recipe && (
                         <div>
-                          <p className="text-white mb-1">
-                            <Link href={`/profile/${activity.user_id}`} className="font-semibold hover:text-pink-400 transition-colors">{userName}</Link>
-                            <span className="text-white/60"> added a new recipe</span>
+                          <p className="text-white/80 mb-1">
+                            <Link href={`/profile/${activity.user_id}`} className="font-medium text-white/90 hover:text-pink-400 transition-colors">{userName}</Link>
+                            <span className="text-white/50"> added a new recipe</span>
                           </p>
 
                           {/* Recipe Card */}
@@ -253,6 +285,10 @@ export default async function FeedPage() {
                       {/* Cooked Activity */}
                       {activity.type === 'cooked' && recipe && (
                         <div>
+                          <div className="inline-flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30">
+                            <span className="text-sm">🔥</span>
+                            <span className="text-xs font-semibold text-amber-400 uppercase tracking-wide">Made it!</span>
+                          </div>
                           <p className="text-white mb-1">
                             <Link href={`/profile/${activity.user_id}`} className="font-semibold hover:text-pink-400 transition-colors">{userName}</Link>
                             <span className="text-white/60"> cooked </span>
@@ -300,11 +336,12 @@ export default async function FeedPage() {
 
                           {/* User's cooked photo */}
                           {interaction?.image_url && (
-                            <div className="mt-3">
+                            <div className="mt-3 relative">
+                              <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/30 via-orange-500/30 to-red-500/30 rounded-2xl blur-sm" />
                               <img
                                 src={interaction.image_url}
                                 alt="Cooked dish"
-                                className="w-full max-h-72 object-cover rounded-2xl"
+                                className="relative w-full max-h-80 object-cover rounded-2xl ring-1 ring-amber-500/20"
                               />
                             </div>
                           )}
@@ -316,7 +353,12 @@ export default async function FeedPage() {
                         <p className="text-xs text-white/40">
                           {formatTimeAgo(activity.created_at)}
                         </p>
-                        <ReactionBar targetType="activity" targetId={activity.id} />
+                        <ReactionBar
+                          targetType="activity"
+                          targetId={activity.id}
+                          initialCounts={reactionsByActivity.get(activity.id)?.counts || {}}
+                          initialUserReactions={reactionsByActivity.get(activity.id)?.userReactions || []}
+                        />
                       </div>
 
                       {/* Comments */}

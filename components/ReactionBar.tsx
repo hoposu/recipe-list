@@ -1,33 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 const EMOJIS = ['🤤', '🫦', '😮‍💨', '🧀']
 
 interface ReactionBarProps {
   targetType: 'activity' | 'interaction'
   targetId: string
+  initialCounts?: Record<string, number>
+  initialUserReactions?: string[]
 }
 
-export default function ReactionBar({ targetType, targetId }: ReactionBarProps) {
-  const [counts, setCounts] = useState<Record<string, number>>({})
-  const [userReactions, setUserReactions] = useState<string[]>([])
+export default function ReactionBar({
+  targetType,
+  targetId,
+  initialCounts = {},
+  initialUserReactions = []
+}: ReactionBarProps) {
+  const [counts, setCounts] = useState<Record<string, number>>(initialCounts)
+  const [userReactions, setUserReactions] = useState<string[]>(initialUserReactions)
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    fetchReactions()
-  }, [targetType, targetId])
-
-  const fetchReactions = async () => {
-    try {
-      const res = await fetch(`/api/reactions?target_type=${targetType}&target_id=${targetId}`)
-      const data = await res.json()
-      if (data.counts) setCounts(data.counts)
-      if (data.userReactions) setUserReactions(data.userReactions)
-    } catch (e) {
-      console.error('Error fetching reactions:', e)
-    }
-  }
 
   const toggleReaction = async (emoji: string) => {
     if (loading) return
