@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import ShareModal from '@/components/ShareModal'
-import Logo from '@/components/Logo'
 import { ShoppingListSkeleton } from '@/components/Skeleton'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
@@ -31,6 +30,7 @@ interface Member {
   profiles: {
     email: string
     display_name: string | null
+    avatar_url: string | null
   }
 }
 
@@ -40,6 +40,18 @@ interface LinkedRecipe {
 }
 
 const categoryOrder = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'frozen', 'pantry', 'beverages', 'other']
+
+const categoryEmojis: Record<string, string> = {
+  produce: '🥬',
+  dairy: '🧀',
+  meat: '🥩',
+  seafood: '🐟',
+  bakery: '🥖',
+  frozen: '🧊',
+  pantry: '🥫',
+  beverages: '🥤',
+  other: '📦',
+}
 
 export default function ShoppingListPage() {
   const params = useParams()
@@ -80,7 +92,7 @@ export default function ShoppingListPage() {
 
     setItems(itemsData || [])
 
-    // Fetch members
+    // Fetch members with avatar
     const { data: membersData } = await supabase
       .from('shopping_list_members')
       .select(`
@@ -88,7 +100,8 @@ export default function ShoppingListPage() {
         role,
         profiles (
           email,
-          display_name
+          display_name,
+          avatar_url
         )
       `)
       .eq('list_id', listId)
@@ -128,14 +141,12 @@ export default function ShoppingListPage() {
           filter: `list_id=eq.${listId}`,
         },
         (payload) => {
-          // Update the item in local state
           const updatedItem = payload.new as ShoppingListItem
           setItems(prev =>
             prev.map(item =>
               item.id === updatedItem.id ? updatedItem : item
             )
           )
-          // Show sync indicator briefly
           setSyncing(true)
           setTimeout(() => setSyncing(false), 500)
         }
@@ -170,7 +181,6 @@ export default function ShoppingListPage() {
 
     channelRef.current = channel
 
-    // Cleanup subscription on unmount
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
@@ -179,14 +189,12 @@ export default function ShoppingListPage() {
   }, [listId, supabase, fetchList])
 
   const toggleItem = async (itemId: string, currentChecked: boolean) => {
-    // Optimistic update
     setItems(prev =>
       prev.map(item =>
         item.id === itemId ? { ...item, checked: !currentChecked } : item
       )
     )
 
-    // Update in database
     await supabase
       .from('shopping_list_items')
       .update({ checked: !currentChecked })
@@ -197,19 +205,16 @@ export default function ShoppingListPage() {
     if (!isOwner || !list) return
     setDeleting(true)
 
-    // Delete items first
     await supabase
       .from('shopping_list_items')
       .delete()
       .eq('list_id', list.id)
 
-    // Delete members
     await supabase
       .from('shopping_list_members')
       .delete()
       .eq('list_id', list.id)
 
-    // Delete list
     const { error } = await supabase
       .from('shopping_lists')
       .delete()
@@ -268,105 +273,142 @@ export default function ShoppingListPage() {
 
   if (!list) {
     return (
-      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-zinc-500 mb-4">Shopping list not found</p>
-          <Link href="/profile" className="text-violet-400 hover:text-violet-300">
-            ← Back to Dashboard
-          </Link>
+      <div className="min-h-screen relative">
+        <div className="aurora-bg" />
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center glass-card p-8">
+            <p className="text-white/50 mb-4">Shopping list not found</p>
+            <Link href="/profile" className="text-pink-400 hover:text-pink-300">
+              Back to Profile
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900">
-      <header className="bg-zinc-800 border-b border-zinc-700">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Logo />
-          <div className="flex items-center gap-4">
-            <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
-              Explore
+    <div className="min-h-screen relative">
+      {/* Aurora background */}
+      <div className="aurora-bg" />
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass-card border-0 border-b border-white/10 rounded-none">
+        <div className="max-w-5xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <Link href="/feed" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center">
+                <span className="text-white text-lg">🦛</span>
+              </div>
+              <span className="text-xl font-semibold text-white">Recipe Pals</span>
             </Link>
-            <Link href="/profile" className="text-sm text-violet-400 hover:text-violet-300">
-              Dashboard
-            </Link>
+            <nav className="flex items-center gap-2">
+              <Link href="/explore" className="glass-button text-sm text-white/90 hover:text-white">
+                Explore
+              </Link>
+              <Link href="/profile" className="glass-button text-sm text-white/90 hover:text-white">
+                Profile
+              </Link>
+            </nav>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              {list.name}
-            </h1>
-            <p className="text-sm text-zinc-400">
-              Created {new Date(list.created_at).toLocaleDateString()}
-            </p>
-          </div>
-          {isOwner && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowShareModal(true)}
-                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                Share
-              </button>
-              {!showDeleteConfirm ? (
+      <main className="max-w-2xl mx-auto px-6 py-12">
+        {/* List Header */}
+        <div className="mb-8 animate-fade-in-up">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="heading-serif text-4xl text-white mb-2">
+                {list.name}
+              </h1>
+              <p className="text-white/40 text-sm">
+                Created {new Date(list.created_at).toLocaleDateString()}
+              </p>
+            </div>
+            {isOwner && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2 border border-red-600 text-red-400 hover:bg-red-600/20 text-sm font-semibold rounded-lg transition-colors"
+                  onClick={() => setShowShareModal(true)}
+                  className="px-4 py-2 bg-white text-black font-semibold text-sm rounded-xl hover:bg-white/90 transition-colors"
                 >
-                  Delete
+                  Share
                 </button>
-              ) : (
-                <div className="flex items-center gap-2 bg-zinc-700 rounded-lg px-3 py-2">
-                  <span className="text-sm text-zinc-300">Sure?</span>
+                {!showDeleteConfirm ? (
                   <button
-                    onClick={deleteList}
-                    disabled={deleting}
-                    className="px-2 py-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white text-xs font-medium rounded"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 glass-button text-red-400 hover:text-red-300 text-sm rounded-xl transition-colors"
                   >
-                    {deleting ? '...' : 'Yes'}
+                    Delete
                   </button>
-                  <button
-                    onClick={() => setShowDeleteConfirm(false)}
-                    disabled={deleting}
-                    className="px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200"
-                  >
-                    No
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex items-center gap-2 glass-card px-3 py-2 rounded-xl">
+                    <span className="text-sm text-white/60">Sure?</span>
+                    <button
+                      onClick={deleteList}
+                      disabled={deleting}
+                      className="px-3 py-1 bg-red-500 hover:bg-red-600 disabled:bg-red-800 text-white text-xs font-medium rounded-lg"
+                    >
+                      {deleting ? '...' : 'Yes'}
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={deleting}
+                      className="px-2 py-1 text-xs text-white/40 hover:text-white/80"
+                    >
+                      No
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Member Avatars */}
+          {members.length > 0 && (
+            <div className="flex items-center gap-3 mt-4">
+              <div className="flex -space-x-2">
+                {members.slice(0, 5).map((member) => {
+                  const name = member.profiles?.display_name || member.profiles?.email || 'U'
+                  return member.profiles?.avatar_url ? (
+                    <img
+                      key={member.user_id}
+                      src={member.profiles.avatar_url}
+                      alt={name}
+                      className="w-8 h-8 rounded-full object-cover ring-2 ring-black/50"
+                    />
+                  ) : (
+                    <div
+                      key={member.user_id}
+                      className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-xs font-medium ring-2 ring-black/50"
+                    >
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                  )
+                })}
+                {members.length > 5 && (
+                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-medium ring-2 ring-black/50">
+                    +{members.length - 5}
+                  </div>
+                )}
+              </div>
+              <span className="text-white/40 text-sm">
+                {members.length} {members.length === 1 ? 'person' : 'people'}
+              </span>
             </div>
           )}
         </div>
 
-        {/* Shared With */}
-        {members.length > 1 && (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-6">
-            <p className="text-sm text-zinc-400">
-              Shared with:{' '}
-              {members
-                .filter(m => m.role !== 'owner')
-                .map(m => m.profiles?.email || 'Unknown')
-                .join(', ')}
-            </p>
-          </div>
-        )}
-
         {/* Linked Recipes */}
         {linkedRecipes.length > 0 && (
-          <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-4 mb-6">
-            <p className="text-sm text-zinc-400 mb-2">Recipes in this list:</p>
+          <div className="glass-card p-4 mb-6">
+            <p className="text-sm text-white/40 mb-3">Recipes in this list</p>
             <div className="flex flex-wrap gap-2">
               {linkedRecipes.map(recipe => (
                 <Link
                   key={recipe.id}
                   href={`/recipes/${recipe.id}`}
-                  className="px-3 py-1 bg-violet-600/20 text-violet-400 text-sm rounded-lg hover:bg-violet-600/30 transition-colors"
+                  className="px-3 py-1.5 bg-pink-500/20 text-pink-400 text-sm rounded-full hover:bg-pink-500/30 transition-colors border border-pink-500/30"
                 >
                   {recipe.title}
                 </Link>
@@ -376,33 +418,38 @@ export default function ShoppingListPage() {
         )}
 
         {/* Progress Bar */}
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-4 mb-6">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-zinc-400 flex items-center gap-2">
+        <div className="glass-card p-5 mb-6">
+          <div className="flex justify-between text-sm mb-3">
+            <span className="text-white/50 flex items-center gap-2">
               Progress
               {syncing && (
-                <span className="inline-flex items-center text-xs text-violet-400">
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-pulse mr-1" />
+                <span className="inline-flex items-center text-xs text-pink-400">
+                  <span className="w-2 h-2 bg-pink-400 rounded-full animate-pulse mr-1" />
                   syncing
                 </span>
               )}
             </span>
-            <span className="font-medium text-zinc-200">
+            <span className="font-medium text-white">
               {checkedCount} of {totalCount} items
             </span>
           </div>
-          <div className="h-3 bg-zinc-700 rounded-full overflow-hidden">
+          <div className="h-3 bg-white/10 rounded-full overflow-hidden">
             <div
-              className="h-full bg-violet-500 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
+          {progress === 100 && totalCount > 0 && (
+            <p className="text-emerald-400 text-sm mt-3 font-medium text-center">
+              All done! Great job!
+            </p>
+          )}
         </div>
 
         {/* Shopping List Items */}
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6">
+        <div className="glass-card p-6">
           {items.length === 0 ? (
-            <p className="text-center text-zinc-500 py-8">
+            <p className="text-center text-white/40 py-8">
               No items in this list yet
             </p>
           ) : (
@@ -413,17 +460,18 @@ export default function ShoppingListPage() {
 
                 return (
                   <div key={category}>
-                    <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-3">
-                      {category}
+                    <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wide mb-3 flex items-center gap-2">
+                      <span>{categoryEmojis[category] || '📦'}</span>
+                      <span>{category}</span>
                     </h3>
                     <div className="space-y-2">
                       {categoryItems.map(item => (
                         <label
                           key={item.id}
-                          className={`flex items-center p-3 rounded-xl cursor-pointer transition-all ${
+                          className={`flex items-center p-4 rounded-xl cursor-pointer transition-all ${
                             item.checked
-                              ? 'bg-zinc-700/30'
-                              : 'bg-zinc-700/50 hover:bg-zinc-700'
+                              ? 'bg-white/5'
+                              : 'bg-white/10 hover:bg-white/15'
                           }`}
                         >
                           <input
@@ -432,29 +480,35 @@ export default function ShoppingListPage() {
                             onChange={() => toggleItem(item.id, item.checked)}
                             className="sr-only"
                           />
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 transition-colors ${
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-4 transition-all ${
                             item.checked
-                              ? 'bg-violet-500 border-violet-500 text-white'
-                              : 'border-zinc-600'
+                              ? 'bg-gradient-to-r from-pink-500 to-purple-500 border-transparent text-white'
+                              : 'border-white/30'
                           }`}>
-                            {item.checked && '✓'}
+                            {item.checked && (
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
                           </div>
                           <span className={`flex-1 ${
                             item.checked
-                              ? 'line-through text-zinc-500'
-                              : 'text-zinc-200'
+                              ? 'line-through text-white/30'
+                              : 'text-white'
                           }`}>
                             {item.ingredient_name}
                           </span>
-                          <span className={`text-sm ${
-                            item.checked
-                              ? 'text-zinc-500'
-                              : 'text-zinc-400'
-                          }`}>
-                            {item.quantity && item.unit
-                              ? `${item.quantity} ${item.unit}`
-                              : item.quantity || ''}
-                          </span>
+                          {(item.quantity || item.unit) && (
+                            <span className={`text-sm ml-2 ${
+                              item.checked
+                                ? 'text-white/20'
+                                : 'text-white/50'
+                            }`}>
+                              {item.quantity && item.unit
+                                ? `${item.quantity} ${item.unit}`
+                                : item.quantity || ''}
+                            </span>
+                          )}
                         </label>
                       ))}
                     </div>
@@ -465,20 +519,20 @@ export default function ShoppingListPage() {
           )}
 
           {/* Add Item Form */}
-          <form onSubmit={addItem} className="mt-6 pt-4 border-t border-zinc-700">
-            <div className="flex gap-2">
+          <form onSubmit={addItem} className="mt-6 pt-6 border-t border-white/10">
+            <div className="flex gap-3">
               <input
                 type="text"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 placeholder="Add an item..."
-                className="flex-1 px-4 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                className="flex-1 px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent text-sm"
                 disabled={addingItem}
               />
               <button
                 type="submit"
                 disabled={addingItem || !newItemName.trim()}
-                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-800 text-white text-sm font-semibold rounded-lg transition-colors"
+                className="px-6 py-3 bg-white text-black font-semibold text-sm rounded-xl hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {addingItem ? '...' : 'Add'}
               </button>
@@ -494,7 +548,7 @@ export default function ShoppingListPage() {
           listName={list.name}
           onClose={() => {
             setShowShareModal(false)
-            fetchList() // Refresh members list
+            fetchList()
           }}
         />
       )}

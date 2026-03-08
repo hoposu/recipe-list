@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import Logo from '@/components/Logo'
 
 interface Recipe {
   id: string
   title: string
+  image_url: string | null
   ingredients: {
     id: string
     name: string
@@ -37,6 +37,7 @@ export default function NewShoppingListPage() {
         .select(`
           id,
           title,
+          image_url,
           ingredients (
             id,
             name,
@@ -130,30 +131,47 @@ export default function NewShoppingListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900">
-      <header className="bg-zinc-800 border-b border-zinc-700">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Logo />
-          <div className="flex items-center gap-4">
-            <Link href="/explore" className="text-sm text-violet-400 hover:text-violet-300">
-              Explore
+    <div className="min-h-screen relative">
+      {/* Aurora background */}
+      <div className="aurora-bg" />
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass-card border-0 border-b border-white/10 rounded-none">
+        <div className="max-w-5xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <Link href="/feed" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center">
+                <span className="text-white text-lg">🦛</span>
+              </div>
+              <span className="text-xl font-semibold text-white">Recipe Pals</span>
             </Link>
-            <Link href="/profile" className="text-sm text-violet-400 hover:text-violet-300">
-              Dashboard
-            </Link>
+            <nav className="flex items-center gap-2">
+              <Link href="/explore" className="glass-button text-sm text-white/90 hover:text-white">
+                Explore
+              </Link>
+              <Link href="/profile" className="glass-button text-sm text-white/90 hover:text-white">
+                Profile
+              </Link>
+            </nav>
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-bold text-white mb-6">
-          Create Shopping List
-        </h1>
+      <main className="max-w-2xl mx-auto px-6 py-12">
+        {/* Page Header */}
+        <div className="mb-8 animate-fade-in-up">
+          <h1 className="heading-serif text-4xl text-white mb-2">
+            Create Shopping List
+          </h1>
+          <p className="text-white/50">
+            Select recipes to add their ingredients to your list
+          </p>
+        </div>
 
-        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 space-y-6">
+        <div className="glass-card p-6 space-y-6">
           {/* List Name */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
+            <label className="block text-sm font-medium text-white/60 mb-2">
               List Name
             </label>
             <input
@@ -161,77 +179,104 @@ export default function NewShoppingListPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Weekly Groceries, Dinner Party"
-              className="w-full px-4 py-2 rounded-lg border border-zinc-600 bg-zinc-700 text-white placeholder-zinc-400 focus:ring-2 focus:ring-violet-500"
+              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-transparent"
             />
           </div>
 
           {/* Recipe Selection */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
+            <label className="block text-sm font-medium text-white/60 mb-3">
               Select Recipes to Include
             </label>
             {loading ? (
-              <p className="text-zinc-500">Loading recipes...</p>
+              <div className="text-white/40 text-center py-8">Loading recipes...</div>
             ) : recipes.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-zinc-500 mb-3">No recipes yet.</p>
+              <div className="text-center py-8 glass-card bg-white/5">
+                <div className="text-4xl mb-3">🍳</div>
+                <p className="text-white/50 mb-4">No recipes yet</p>
                 <Link
                   href="/recipes/new"
-                  className="text-violet-400 hover:text-violet-300 font-medium"
+                  className="text-pink-400 hover:text-pink-300 font-medium"
                 >
-                  Add your first recipe →
+                  Add your first recipe
                 </Link>
               </div>
             ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {recipes.map(recipe => (
-                  <label
-                    key={recipe.id}
-                    className={`flex items-center p-4 rounded-xl cursor-pointer transition-colors ${
-                      selectedRecipes.includes(recipe.id)
-                        ? 'bg-violet-900/30 border-2 border-violet-500'
-                        : 'bg-zinc-700/50 border-2 border-transparent hover:bg-zinc-700'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedRecipes.includes(recipe.id)}
-                      onChange={() => toggleRecipe(recipe.id)}
-                      className="sr-only"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-white">
-                        {recipe.title}
-                      </p>
-                      <p className="text-sm text-zinc-400">
-                        {recipe.ingredients?.length || 0} ingredients
-                      </p>
-                    </div>
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                      selectedRecipes.includes(recipe.id)
-                        ? 'bg-violet-500 border-violet-500 text-white'
-                        : 'border-zinc-600'
-                    }`}>
-                      {selectedRecipes.includes(recipe.id) && '✓'}
-                    </div>
-                  </label>
-                ))}
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                {recipes.map(recipe => {
+                  const isSelected = selectedRecipes.includes(recipe.id)
+                  return (
+                    <label
+                      key={recipe.id}
+                      className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-pink-500/20 border-2 border-pink-500/50'
+                          : 'bg-white/10 border-2 border-transparent hover:bg-white/15'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleRecipe(recipe.id)}
+                        className="sr-only"
+                      />
+
+                      {/* Recipe Image */}
+                      {recipe.image_url ? (
+                        <img
+                          src={recipe.image_url}
+                          alt={recipe.title}
+                          className="w-16 h-16 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center">
+                          <span className="text-2xl">🍽</span>
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-white truncate">
+                          {recipe.title}
+                        </p>
+                        <p className="text-sm text-white/40">
+                          {recipe.ingredients?.length || 0} ingredients
+                        </p>
+                      </div>
+
+                      {/* Selection indicator */}
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-pink-500 to-purple-500 border-transparent text-white'
+                          : 'border-white/30'
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
               </div>
             )}
           </div>
 
           {/* Selected Count */}
           {selectedRecipes.length > 0 && (
-            <p className="text-sm text-violet-400">
-              {selectedRecipes.length} recipe{selectedRecipes.length > 1 ? 's' : ''} selected
-            </p>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+              <span className="text-pink-400">
+                {selectedRecipes.length} recipe{selectedRecipes.length > 1 ? 's' : ''} selected
+              </span>
+            </div>
           )}
 
           {/* Create Button */}
           <button
             onClick={handleCreate}
             disabled={saving || !name.trim() || selectedRecipes.length === 0}
-            className="w-full py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-800 text-white font-semibold rounded-lg transition-colors"
+            className="w-full py-4 bg-white text-black font-semibold rounded-xl hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg"
           >
             {saving ? 'Creating...' : 'Create Shopping List'}
           </button>
@@ -252,11 +297,9 @@ function consolidateIngredients(recipes: Recipe[]) {
 
   for (const recipe of recipes) {
     for (const ing of recipe.ingredients || []) {
-      // Create a key based on name + unit (lowercase for comparison)
       const key = `${ing.name.toLowerCase()}_${(ing.unit || '').toLowerCase()}`
 
       if (map.has(key)) {
-        // Add quantities
         const existing = map.get(key)!
         existing.quantity += ing.quantity || 1
       } else {

@@ -18,12 +18,21 @@ interface UserWithSharedCount {
   alreadyHasAccess: boolean
 }
 
+interface MemberWithProfile {
+  id: string
+  email: string
+  display_name: string | null
+  avatar_url: string | null
+  role: string
+}
+
 export default function ShareModal({ listId, listName, onClose }: ShareModalProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [role, setRole] = useState<'editor' | 'viewer'>('editor')
   const [loading, setLoading] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [users, setUsers] = useState<UserWithSharedCount[]>([])
+  const [currentMembers, setCurrentMembers] = useState<MemberWithProfile[]>([])
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const supabase = createClient()
 
@@ -62,12 +71,44 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
         : { data: [] }
 
       // Get members who already have access to THIS list
-      const { data: currentListMembers } = await supabase
+      const { data: currentListMembers, error: membersError } = await supabase
         .from('shopping_list_members')
-        .select('user_id')
+        .select('user_id, role')
         .eq('list_id', listId)
 
+      console.log('currentListMembers:', currentListMembers, 'error:', membersError)
+
       const currentListMemberIds = new Set(currentListMembers?.map(m => m.user_id) || [])
+
+      // Get profiles for non-owner members
+      const nonOwnerMembers = (currentListMembers || []).filter(m => m.role !== 'owner')
+      const memberUserIds = nonOwnerMembers.map(m => m.user_id)
+
+      let membersWithProfiles: MemberWithProfile[] = []
+      console.log('nonOwnerMembers:', nonOwnerMembers, 'memberUserIds:', memberUserIds)
+      if (memberUserIds.length > 0) {
+        const { data: memberProfiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, email, display_name, avatar_url')
+          .in('id', memberUserIds)
+
+        console.log('memberProfiles:', memberProfiles, 'error:', profilesError)
+        const profileMap = new Map((memberProfiles || []).map(p => [p.id, p]))
+        membersWithProfiles = nonOwnerMembers
+          .filter(m => profileMap.has(m.user_id))
+          .map(m => {
+            const profile = profileMap.get(m.user_id)!
+            return {
+              id: profile.id,
+              email: profile.email,
+              display_name: profile.display_name,
+              avatar_url: profile.avatar_url,
+              role: m.role,
+            }
+          })
+      }
+      console.log('Setting currentMembers to:', membersWithProfiles)
+      setCurrentMembers(membersWithProfiles)
 
       // Count shared lists per user
       const sharedCounts = new Map<string, number>()
@@ -120,6 +161,18 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
       setUsers(prev => prev.map(u =>
         u.id === selectedUserId ? { ...u, alreadyHasAccess: true, sharedCount: u.sharedCount + 1 } : u
       ))
+
+      // Add to current members display
+      if (sharedUser) {
+        setCurrentMembers(prev => [...prev, {
+          id: sharedUser.id,
+          email: sharedUser.email,
+          display_name: sharedUser.display_name,
+          avatar_url: sharedUser.avatar_url,
+          role: role,
+        }])
+      }
+
       setSelectedUserId(null)
     } catch (error) {
       console.error('Share error:', error)
@@ -152,6 +205,42 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
         </div>
 
         <div className="space-y-4">
+          {/* Current members */}
+          {currentMembers.length > 0 && (
+            <div className="pb-4 border-b border-white/10">
+              <label className="block text-sm font-medium text-white/60 mb-3">
+                Shared with
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {currentMembers.map((member) => {
+                  const displayName = member.display_name || member.email.split('@')[0]
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10"
+                    >
+                      {member.avatar_url ? (
+                        <img
+                          src={member.avatar_url}
+                          alt={displayName}
+                          className="w-6 h-6 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
+                          {displayName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-sm text-white">{displayName}</span>
+                      <span className="text-xs text-white/40">
+                        {member.role === 'editor' ? 'edit' : 'view'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* User selection */}
           <div>
             <label className="block text-sm font-medium text-white/60 mb-2">
