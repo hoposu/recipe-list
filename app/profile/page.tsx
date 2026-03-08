@@ -37,7 +37,7 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  // Fetch owned shopping lists
+  // Fetch owned shopping lists with members
   const { data: ownedLists } = await supabase
     .from('shopping_lists')
     .select(`
@@ -48,6 +48,15 @@ export default async function DashboardPage() {
       shopping_list_items (
         id,
         checked
+      ),
+      shopping_list_members (
+        user_id,
+        role,
+        profiles:user_id (
+          email,
+          display_name,
+          avatar_url
+        )
       )
     `)
     .eq('owner_id', user.id)
@@ -72,11 +81,33 @@ export default async function DashboardPage() {
           email,
           display_name,
           avatar_url
+        ),
+        shopping_list_members (
+          user_id,
+          role,
+          profiles:user_id (
+            email,
+            display_name,
+            avatar_url
+          )
         )
       )
     `)
     .eq('user_id', user.id)
     .neq('role', 'owner')
+
+  // Helper to extract member profiles from a list
+  const getMemberProfiles = (members: any[]) => {
+    return (members || [])
+      .filter((m: any) => m.profiles)
+      .map((m: any) => ({
+        id: m.user_id,
+        role: m.role,
+        email: m.profiles.email,
+        displayName: m.profiles.display_name,
+        avatar: m.profiles.avatar_url,
+      }))
+  }
 
   // Combine lists
   const allLists = [
@@ -86,6 +117,7 @@ export default async function DashboardPage() {
       ownerEmail: profile?.email || null,
       ownerName: profile?.display_name || null,
       ownerAvatar: profile?.avatar_url || null,
+      members: getMemberProfiles((list as any).shopping_list_members),
     })),
     ...(sharedListMemberships || []).map(m => ({
       ...(m.shopping_lists as any),
@@ -93,6 +125,7 @@ export default async function DashboardPage() {
       ownerEmail: (m.shopping_lists as any)?.profiles?.email,
       ownerName: (m.shopping_lists as any)?.profiles?.display_name,
       ownerAvatar: (m.shopping_lists as any)?.profiles?.avatar_url,
+      members: getMemberProfiles((m.shopping_lists as any)?.shopping_list_members),
     }))
   ]
 
@@ -189,7 +222,10 @@ export default async function DashboardPage() {
                 const checked = items?.filter(i => i.checked).length || 0
                 const progress = total > 0 ? Math.round((checked / total) * 100) : 0
 
-                const ownerInitial = (list.ownerName || list.ownerEmail || 'U').charAt(0).toUpperCase()
+                // Get all unique members for avatar display
+                const members = list.members || []
+                const displayMembers = members.slice(0, 4) // Show max 4 avatars
+                const extraCount = members.length - 4
 
                 return (
                   <Link
@@ -198,18 +234,37 @@ export default async function DashboardPage() {
                     className="glass-card glass-card-hover p-5"
                   >
                     <div className="flex items-start gap-3 mb-4">
-                      {/* Owner Avatar */}
-                      {list.ownerAvatar ? (
-                        <img
-                          src={list.ownerAvatar}
-                          alt={list.ownerName || list.ownerEmail || 'Owner'}
-                          className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-medium ring-2 ring-white/10 flex-shrink-0">
-                          {ownerInitial}
-                        </div>
-                      )}
+                      {/* Member Avatars - stacked */}
+                      <div className="flex -space-x-2 flex-shrink-0">
+                        {displayMembers.map((member: any, idx: number) => {
+                          const initial = (member.displayName || member.email || 'U').charAt(0).toUpperCase()
+                          return member.avatar ? (
+                            <img
+                              key={member.id}
+                              src={member.avatar}
+                              alt={member.displayName || member.email || 'Member'}
+                              className="w-8 h-8 rounded-full object-cover ring-2 ring-zinc-800"
+                              style={{ zIndex: displayMembers.length - idx }}
+                            />
+                          ) : (
+                            <div
+                              key={member.id}
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center text-white text-xs font-medium ring-2 ring-zinc-800"
+                              style={{ zIndex: displayMembers.length - idx }}
+                            >
+                              {initial}
+                            </div>
+                          )
+                        })}
+                        {extraCount > 0 && (
+                          <div
+                            className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-medium ring-2 ring-zinc-800"
+                            style={{ zIndex: 0 }}
+                          >
+                            +{extraCount}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-white truncate">
