@@ -52,6 +52,46 @@ export default async function UserProfilePage({ params }: Props) {
 
   const recipeCount = recipes?.length || 0
 
+  // Fetch lists shared between current user and this user
+  // First, get lists where current user is a member
+  const { data: myMemberships } = await supabase
+    .from('shopping_list_members')
+    .select('list_id')
+    .eq('user_id', currentUser.id)
+
+  const myListIds = myMemberships?.map(m => m.list_id) || []
+
+  // Then find lists where the viewed user is also a member
+  let sharedLists: any[] = []
+  if (myListIds.length > 0) {
+    const { data: theirMemberships } = await supabase
+      .from('shopping_list_members')
+      .select('list_id')
+      .eq('user_id', userId)
+      .in('list_id', myListIds)
+
+    const sharedListIds = theirMemberships?.map(m => m.list_id) || []
+
+    if (sharedListIds.length > 0) {
+      const { data: listsData } = await supabase
+        .from('shopping_lists')
+        .select(`
+          id,
+          name,
+          created_at,
+          owner_id,
+          shopping_list_items (
+            id,
+            checked
+          )
+        `)
+        .in('id', sharedListIds)
+        .order('created_at', { ascending: false })
+
+      sharedLists = listsData || []
+    }
+  }
+
   return (
     <div className="min-h-screen relative">
       {/* Aurora background */}
@@ -109,6 +149,47 @@ export default async function UserProfilePage({ params }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Shared Lists Section */}
+        {sharedLists.length > 0 && (
+          <section className="mb-12">
+            <h2 className="heading-serif text-2xl text-white mb-6">
+              Shared Lists
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sharedLists.map((list) => {
+                const items = list.shopping_list_items as { id: string; checked: boolean }[]
+                const total = items?.length || 0
+                const checked = items?.filter((i: any) => i.checked).length || 0
+                const progress = total > 0 ? Math.round((checked / total) * 100) : 0
+
+                return (
+                  <Link
+                    key={list.id}
+                    href={`/shopping-lists/${list.id}`}
+                    className="glass-card glass-card-hover p-5"
+                  >
+                    <h3 className="font-semibold text-white truncate mb-2">
+                      {list.name}
+                    </h3>
+                    <div className="flex items-center justify-between text-sm text-white/50 mb-3">
+                      <span>{checked}/{total} items</span>
+                      {progress === 100 && total > 0 && (
+                        <span className="text-emerald-400 text-xs font-medium">Complete!</span>
+                      )}
+                    </div>
+                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-500"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Recipes Section */}
         <section>

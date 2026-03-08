@@ -187,15 +187,63 @@ export default async function FeedPage() {
               const isCooked = activity.type === 'cooked'
               const isSignup = activity.type === 'signup'
 
+              // Condensed signup card
+              if (isSignup) {
+                return (
+                  <article
+                    key={activity.id}
+                    className="py-3 px-4 rounded-xl bg-transparent flex items-center gap-3 flex-wrap"
+                  >
+                    {/* Small Avatar */}
+                    <Link href={`/profile/${activity.user_id}`} className="flex-shrink-0">
+                      {profile?.avatar_url ? (
+                        <img
+                          src={profile.avatar_url}
+                          alt={userName}
+                          className="w-8 h-8 rounded-full object-cover ring-1 ring-white/20 hover:ring-pink-500/50 transition-all"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm ring-1 ring-white/20 hover:ring-pink-500/50 transition-all">
+                          {userName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </Link>
+
+                    {/* Text */}
+                    <p className="text-sm text-white/70">
+                      <Link href={`/profile/${activity.user_id}`} className="font-medium text-white hover:text-pink-400 transition-colors">{userName}</Link>
+                      <span className="text-white/50"> joined</span>
+                    </p>
+
+                    {/* Badge */}
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      New
+                    </span>
+
+                    {/* Spacer */}
+                    <div className="flex-1" />
+
+                    {/* Time + Reactions inline */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-white/30">{formatTimeAgo(activity.created_at)}</span>
+                      <ReactionBar
+                        targetType="activity"
+                        targetId={activity.id}
+                        initialCounts={reactionsByActivity.get(activity.id)?.counts || {}}
+                        initialUserReactions={reactionsByActivity.get(activity.id)?.userReactions || []}
+                      />
+                    </div>
+                  </article>
+                )
+              }
+
               return (
                 <article
                   key={activity.id}
                   className={`p-5 rounded-2xl transition-all ${
                     isCooked
-                      ? 'glass-card bg-white/25 border border-white/20'
-                      : isSignup
-                        ? 'bg-transparent'
-                        : 'glass-card glass-card-hover'
+                      ? 'glass-card bg-white/40 border border-white/20'
+                      : 'glass-card glass-card-hover'
                   }`}
                 >
                   <div className="flex gap-4">
@@ -215,19 +263,6 @@ export default async function FeedPage() {
                     </Link>
 
                     <div className="flex-1 min-w-0">
-                      {/* Signup Activity */}
-                      {activity.type === 'signup' && (
-                        <div>
-                          <p className="text-white">
-                            <Link href={`/profile/${activity.user_id}`} className="font-semibold hover:text-pink-400 transition-colors">{userName}</Link>
-                            <span className="text-white/60"> joined Recipe Pals</span>
-                          </p>
-                          <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            New member
-                          </span>
-                        </div>
-                      )}
-
                       {/* New Recipe Activity */}
                       {activity.type === 'new_recipe' && recipe && (
                         <div>
