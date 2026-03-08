@@ -190,12 +190,12 @@ export default async function FeedPage() {
               return (
                 <article
                   key={activity.id}
-                  className={`glass-card glass-card-hover p-5 ${
+                  className={`p-5 rounded-2xl transition-all ${
                     isCooked
-                      ? 'bg-white/15'
+                      ? 'glass-card bg-white/25 border border-white/20'
                       : isSignup
-                        ? 'bg-transparent border-white/5'
-                        : ''
+                        ? 'bg-transparent'
+                        : 'glass-card glass-card-hover'
                   }`}
                 >
                   <div className="flex gap-4">
@@ -335,12 +335,11 @@ export default async function FeedPage() {
 
                           {/* User's cooked photo */}
                           {interaction?.image_url && (
-                            <div className="mt-3 relative">
-                              <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/30 via-orange-500/30 to-red-500/30 rounded-2xl blur-sm" />
+                            <div className="mt-3">
                               <img
                                 src={interaction.image_url}
                                 alt="Cooked dish"
-                                className="relative w-full max-h-80 object-cover rounded-2xl ring-1 ring-amber-500/20"
+                                className="w-full max-h-80 object-cover rounded-2xl"
                               />
                             </div>
                           )}

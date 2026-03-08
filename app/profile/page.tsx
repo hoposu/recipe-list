@@ -37,7 +37,7 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  // Fetch owned shopping lists with members
+  // Fetch owned shopping lists
   const { data: ownedLists } = await supabase
     .from('shopping_lists')
     .select(`
@@ -48,27 +48,51 @@ export default async function DashboardPage() {
       shopping_list_items (
         id,
         checked
-      ),
-      shopping_list_members (
-        user_id,
-        role,
-        profiles:user_id (
-          email,
-          display_name,
-          avatar_url
-        )
       )
     `)
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
 
+  // Fetch members for owned lists
+  const ownedListIds = ownedLists?.map(l => l.id) || []
+  let ownedListMembers: any[] = []
+  if (ownedListIds.length > 0) {
+    const { data: membersData } = await supabase
+      .from('shopping_list_members')
+      .select('list_id, user_id, role')
+      .in('list_id', ownedListIds)
+    ownedListMembers = membersData || []
+  }
+
+  // Fetch profiles for all members
+  const memberUserIds = [...new Set(ownedListMembers.map(m => m.user_id))]
+  let memberProfiles: any[] = []
+  if (memberUserIds.length > 0) {
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, email, display_name, avatar_url')
+      .in('id', memberUserIds)
+    memberProfiles = profilesData || []
+  }
+  const profileMap = new Map(memberProfiles.map(p => [p.id, p]))
+
   // Fetch shared shopping lists (where user is a member but not owner)
-  const { data: sharedListMemberships } = await supabase
+  const { data: sharedMemberships } = await supabase
     .from('shopping_list_members')
-    .select(`
-      list_id,
-      role,
-      shopping_lists (
+    .select('list_id, role')
+    .eq('user_id', user.id)
+    .neq('role', 'owner')
+
+  const sharedListIds = sharedMemberships?.map(m => m.list_id) || []
+  let sharedLists: any[] = []
+  let sharedListMembers: any[] = []
+  let sharedListOwnerProfiles: any[] = []
+
+  if (sharedListIds.length > 0) {
+    // Fetch the shared lists
+    const { data: listsData } = await supabase
+      .from('shopping_lists')
+      .select(`
         id,
         name,
         created_at,
@@ -76,37 +100,58 @@ export default async function DashboardPage() {
         shopping_list_items (
           id,
           checked
-        ),
-        profiles:owner_id (
-          email,
-          display_name,
-          avatar_url
-        ),
-        shopping_list_members (
-          user_id,
-          role,
-          profiles:user_id (
-            email,
-            display_name,
-            avatar_url
-          )
         )
-      )
-    `)
-    .eq('user_id', user.id)
-    .neq('role', 'owner')
+      `)
+      .in('id', sharedListIds)
+    sharedLists = listsData || []
 
-  // Helper to extract member profiles from a list
-  const getMemberProfiles = (members: any[]) => {
-    return (members || [])
-      .filter((m: any) => m.profiles)
-      .map((m: any) => ({
-        id: m.user_id,
-        role: m.role,
-        email: m.profiles.email,
-        displayName: m.profiles.display_name,
-        avatar: m.profiles.avatar_url,
-      }))
+    // Fetch members for shared lists
+    const { data: sharedMembersData } = await supabase
+      .from('shopping_list_members')
+      .select('list_id, user_id, role')
+      .in('list_id', sharedListIds)
+    sharedListMembers = sharedMembersData || []
+
+    // Fetch owner profiles
+    const ownerIds = [...new Set(sharedLists.map(l => l.owner_id))]
+    if (ownerIds.length > 0) {
+      const { data: ownerProfilesData } = await supabase
+        .from('profiles')
+        .select('id, email, display_name, avatar_url')
+        .in('id', ownerIds)
+      sharedListOwnerProfiles = ownerProfilesData || []
+    }
+
+    // Add shared list member profiles to the profileMap
+    const sharedMemberUserIds = [...new Set(sharedListMembers.map(m => m.user_id))]
+    const newUserIds = sharedMemberUserIds.filter(id => !profileMap.has(id))
+    if (newUserIds.length > 0) {
+      const { data: moreProfiles } = await supabase
+        .from('profiles')
+        .select('id, email, display_name, avatar_url')
+        .in('id', newUserIds)
+      for (const p of moreProfiles || []) {
+        profileMap.set(p.id, p)
+      }
+    }
+  }
+
+  const ownerProfileMap = new Map(sharedListOwnerProfiles.map(p => [p.id, p]))
+
+  // Helper to get member profiles for a list
+  const getMemberProfilesForList = (listId: string, membersList: any[]) => {
+    return membersList
+      .filter(m => m.list_id === listId)
+      .map(m => {
+        const p = profileMap.get(m.user_id)
+        return {
+          id: m.user_id,
+          role: m.role,
+          email: p?.email || '',
+          displayName: p?.display_name || null,
+          avatar: p?.avatar_url || null,
+        }
+      })
   }
 
   // Combine lists
@@ -117,16 +162,19 @@ export default async function DashboardPage() {
       ownerEmail: profile?.email || null,
       ownerName: profile?.display_name || null,
       ownerAvatar: profile?.avatar_url || null,
-      members: getMemberProfiles((list as any).shopping_list_members),
+      members: getMemberProfilesForList(list.id, ownedListMembers),
     })),
-    ...(sharedListMemberships || []).map(m => ({
-      ...(m.shopping_lists as any),
-      isOwned: false,
-      ownerEmail: (m.shopping_lists as any)?.profiles?.email,
-      ownerName: (m.shopping_lists as any)?.profiles?.display_name,
-      ownerAvatar: (m.shopping_lists as any)?.profiles?.avatar_url,
-      members: getMemberProfiles((m.shopping_lists as any)?.shopping_list_members),
-    }))
+    ...sharedLists.map(list => {
+      const ownerProfile = ownerProfileMap.get(list.owner_id)
+      return {
+        ...list,
+        isOwned: false,
+        ownerEmail: ownerProfile?.email || null,
+        ownerName: ownerProfile?.display_name || null,
+        ownerAvatar: ownerProfile?.avatar_url || null,
+        members: getMemberProfilesForList(list.id, sharedListMembers),
+      }
+    })
   ]
 
   // Count stats
