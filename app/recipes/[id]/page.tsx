@@ -92,7 +92,7 @@ export default function RecipeDetailPage() {
           .select('id')
           .eq('user_id', user.id)
           .eq('recipe_id', recipeId)
-          .single()
+          .maybeSingle()
 
         setIsSaved(!!savedData)
       }
