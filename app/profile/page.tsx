@@ -70,7 +70,8 @@ export default async function DashboardPage() {
         ),
         profiles:owner_id (
           email,
-          display_name
+          display_name,
+          avatar_url
         )
       )
     `)
@@ -79,12 +80,19 @@ export default async function DashboardPage() {
 
   // Combine lists
   const allLists = [
-    ...(ownedLists || []).map(list => ({ ...list, isOwned: true, ownerEmail: null, ownerName: null })),
+    ...(ownedLists || []).map(list => ({
+      ...list,
+      isOwned: true,
+      ownerEmail: profile?.email || null,
+      ownerName: profile?.display_name || null,
+      ownerAvatar: profile?.avatar_url || null,
+    })),
     ...(sharedListMemberships || []).map(m => ({
       ...(m.shopping_lists as any),
       isOwned: false,
       ownerEmail: (m.shopping_lists as any)?.profiles?.email,
       ownerName: (m.shopping_lists as any)?.profiles?.display_name,
+      ownerAvatar: (m.shopping_lists as any)?.profiles?.avatar_url,
     }))
   ]
 
@@ -181,24 +189,39 @@ export default async function DashboardPage() {
                 const checked = items?.filter(i => i.checked).length || 0
                 const progress = total > 0 ? Math.round((checked / total) * 100) : 0
 
+                const ownerInitial = (list.ownerName || list.ownerEmail || 'U').charAt(0).toUpperCase()
+
                 return (
                   <Link
                     key={list.id}
                     href={`/shopping-lists/${list.id}`}
                     className="glass-card glass-card-hover p-5"
                   >
-                    <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-start gap-3 mb-4">
+                      {/* Owner Avatar */}
+                      {list.ownerAvatar ? (
+                        <img
+                          src={list.ownerAvatar}
+                          alt={list.ownerName || list.ownerEmail || 'Owner'}
+                          className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center text-white text-sm font-medium ring-2 ring-white/10 flex-shrink-0">
+                          {ownerInitial}
+                        </div>
+                      )}
+
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-white truncate">
                           {list.name}
                         </h3>
                         {!list.isOwned && (
-                          <p className="text-xs text-white/40 mt-1">
+                          <p className="text-xs text-white/40 mt-0.5">
                             Shared by {list.ownerName || list.ownerEmail}
                           </p>
                         )}
                       </div>
-                      <span className="text-sm text-white/50 ml-3">
+                      <span className="text-sm text-white/50 ml-2 flex-shrink-0">
                         {checked}/{total}
                       </span>
                     </div>
