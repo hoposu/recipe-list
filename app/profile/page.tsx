@@ -142,11 +142,10 @@ export default async function DashboardPage() {
       <header className="sticky top-0 z-50 glass-card border-0 border-b border-white/10 rounded-none">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
-            <Link href="/feed" className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center">
-                <span className="text-white text-lg">🦛</span>
-              </div>
-              <span className="text-xl font-semibold text-white">Recipe Pals</span>
+            <Link href="/feed" className="flex items-center gap-2">
+              <span className="heading-serif text-2xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+                Recipe Pals
+              </span>
             </Link>
             <nav className="flex items-center gap-2">
               <Link href="/explore" className="glass-button text-sm text-white/90 hover:text-white">

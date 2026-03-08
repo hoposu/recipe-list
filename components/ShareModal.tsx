@@ -71,12 +71,10 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
         : { data: [] }
 
       // Get members who already have access to THIS list
-      const { data: currentListMembers, error: membersError } = await supabase
+      const { data: currentListMembers } = await supabase
         .from('shopping_list_members')
         .select('user_id, role')
         .eq('list_id', listId)
-
-      console.log('currentListMembers:', currentListMembers, 'error:', membersError)
 
       const currentListMemberIds = new Set(currentListMembers?.map(m => m.user_id) || [])
 
@@ -85,14 +83,12 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
       const memberUserIds = nonOwnerMembers.map(m => m.user_id)
 
       let membersWithProfiles: MemberWithProfile[] = []
-      console.log('nonOwnerMembers:', nonOwnerMembers, 'memberUserIds:', memberUserIds)
       if (memberUserIds.length > 0) {
-        const { data: memberProfiles, error: profilesError } = await supabase
+        const { data: memberProfiles } = await supabase
           .from('profiles')
           .select('id, email, display_name, avatar_url')
           .in('id', memberUserIds)
 
-        console.log('memberProfiles:', memberProfiles, 'error:', profilesError)
         const profileMap = new Map((memberProfiles || []).map(p => [p.id, p]))
         membersWithProfiles = nonOwnerMembers
           .filter(m => profileMap.has(m.user_id))
@@ -107,7 +103,6 @@ export default function ShareModal({ listId, listName, onClose }: ShareModalProp
             }
           })
       }
-      console.log('Setting currentMembers to:', membersWithProfiles)
       setCurrentMembers(membersWithProfiles)
 
       // Count shared lists per user

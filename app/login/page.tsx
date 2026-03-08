@@ -9,11 +9,10 @@ export default function LoginPage() {
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
-        <Link href="/" className="flex items-center justify-center gap-3 mb-10">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
-            <span className="text-2xl">🦛</span>
-          </div>
-          <span className="heading-serif text-3xl text-white">Recipe Pals</span>
+        <Link href="/" className="flex items-center justify-center mb-10">
+          <span className="heading-serif text-4xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
+            Recipe Pals
+          </span>
         </Link>
 
         <div className="glass-card p-8">

@@ -23,12 +23,7 @@ export default async function Home() {
       <main className="relative z-10 mx-auto max-w-5xl px-6 py-20">
         {/* Header */}
         <header className="text-center mb-20 animate-fade-in-up">
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 flex items-center justify-center shadow-2xl shadow-purple-500/30">
-              <span className="text-5xl">🦛</span>
-            </div>
-          </div>
-          <h1 className="heading-serif text-6xl md:text-8xl text-white mb-6">
+          <h1 className="heading-serif text-6xl md:text-8xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 bg-clip-text text-transparent mb-6">
             Recipe Pals
           </h1>
           <p className="text-xl md:text-2xl text-white/60 max-w-2xl mx-auto leading-relaxed">
